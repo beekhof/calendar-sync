@@ -14,6 +14,7 @@ import (
 type googleCalendarClient interface {
 	FindOrCreateCalendarByName(name string, colorID string) (string, error)
 	GetEvents(calendarID string, timeMin, timeMax time.Time) ([]*calendar.Event, error)
+	GetEvent(calendarID, eventID string) (*calendar.Event, error)
 	InsertEvent(calendarID string, event *calendar.Event) error
 	UpdateEvent(calendarID, eventID string, event *calendar.Event) error
 	DeleteEvent(calendarID, eventID string) error
@@ -52,7 +53,8 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 		}
 
 		// Rule 2: Skip timed OOF events
-		if isOutOfOffice(event) {
+		// For recurring event instances, check the parent event's transparency
+		if isOutOfOffice(event, s.workClient) {
 			continue
 		}
 
@@ -102,13 +104,42 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 }
 
 // isOutOfOffice checks if an event is marked as "Out of Office".
-func isOutOfOffice(event *calendar.Event) bool {
-	// Check if the event transparency is "transparent" (OOF)
+// Uses multiple methods in order of reliability:
+// 1. EventType field (most reliable - explicitly set by Google Calendar)
+// 2. Transparency field (fallback - indicates free/busy status)
+// 3. Parent event check (for recurring event instances)
+// 4. Keyword matching in summary (last resort)
+func isOutOfOffice(event *calendar.Event, client googleCalendarClient) bool {
+	// Primary check: EventType field is the most reliable indicator
+	// Google Calendar sets this to "outOfOffice" for OOF events
+	if event.EventType == "outOfOffice" {
+		return true
+	}
+
+	// For recurring event instances, check the parent event's EventType first
+	if event.RecurringEventId != "" {
+		parentEvent, err := client.GetEvent("primary", event.RecurringEventId)
+		if err == nil && parentEvent != nil {
+			// Check parent's EventType first (most reliable)
+			if parentEvent.EventType == "outOfOffice" {
+				return true
+			}
+			// Fallback to parent's transparency
+			if parentEvent.Transparency == "transparent" {
+				return true
+			}
+		}
+		// If we can't fetch the parent, fall through to other checks
+	}
+
+	// Secondary check: Transparency field (indicates free/busy, not specifically OOF)
+	// This is less reliable but useful for older events or events created differently
 	if event.Transparency == "transparent" {
 		return true
 	}
 
-	// Also check the summary for common OOF indicators
+	// Tertiary check: Keyword matching in summary (last resort)
+	// Useful for events that might be OOF but not properly marked
 	summary := strings.ToLower(event.Summary)
 	oofKeywords := []string{"out of office", "oof", "pto", "vacation", "away"}
 	for _, keyword := range oofKeywords {

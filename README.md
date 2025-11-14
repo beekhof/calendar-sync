@@ -42,13 +42,28 @@ go build -o calsync .
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
 3. Enable the Google Calendar API
-4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
-5. Choose "Desktop app" as the application type
-6. **Important**: Add `http://127.0.0.1:8080` (or `http://localhost:8080`) to the "Authorized redirect URIs" list
-7. Click "Download" to download the credentials JSON file
-8. Save the JSON file in a secure location (e.g., `~/credentials.json`)
+4. **Configure OAuth Consent Screen**:
+   - Go to "APIs & Services" → "OAuth consent screen"
+   - Choose "External" user type (unless you're using a Google Workspace account and want to restrict to your organization)
+   - Fill in the required app information (App name, User support email, Developer contact email)
+   - Add scopes: `https://www.googleapis.com/auth/calendar.readonly` and `https://www.googleapis.com/auth/calendar.events`
+   - Add test users (if app is in Testing mode): Add your personal and work email addresses
+   - Save and continue through the steps
+5. **Create OAuth Credentials**:
+   - Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
+   - Choose "Desktop app" as the application type
+   - **Important**: Add `http://127.0.0.1:8080` (or `http://localhost:8080`) to the "Authorized redirect URIs" list
+   - Click "Download" to download the credentials JSON file
+6. Save the JSON file in a secure location (e.g., `~/credentials.json`)
 
 **Note**: The tool uses a local HTTP server on port 8080 (or a random port if 8080 is unavailable) to receive the OAuth callback. Make sure this redirect URI is added to your OAuth client configuration in Google Cloud Console.
+
+**Troubleshooting**:
+- If you see "Access blocked: [app] can only be used within its organization":
+  - Go to "OAuth consent screen" in Google Cloud Console
+  - Change "User type" from "Internal" to "External"
+  - If the app is in "Testing" mode, add your email addresses as test users
+  - If you want to use it with any Google account, you'll need to publish the app (requires verification for sensitive scopes)
 
 ### 2. Configure the Tool
 

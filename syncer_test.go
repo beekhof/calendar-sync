@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -40,6 +41,26 @@ func (m *mockGoogleCalendarClient) FindOrCreateCalendarByName(name string, color
 
 func (m *mockGoogleCalendarClient) GetEvents(calendarID string, timeMin, timeMax time.Time) ([]*calendar.Event, error) {
 	return m.events[calendarID], nil
+}
+
+func (m *mockGoogleCalendarClient) GetEvent(calendarID, eventID string) (*calendar.Event, error) {
+	// Search through all events in the calendar to find the event
+	if events, exists := m.events[calendarID]; exists {
+		for _, event := range events {
+			if event.Id == eventID {
+				return event, nil
+			}
+		}
+	}
+	// Also check if it's a recurring event parent by searching all calendars
+	for _, events := range m.events {
+		for _, event := range events {
+			if event.Id == eventID {
+				return event, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("event not found: %s", eventID)
 }
 
 func (m *mockGoogleCalendarClient) InsertEvent(calendarID string, event *calendar.Event) error {
@@ -94,9 +115,40 @@ func (m *mockGoogleCalendarClient) FindEventsByWorkID(calendarID, workEventID st
 }
 
 func TestFilterEvents_TimedOOF(t *testing.T) {
-	syncer := &Syncer{}
+	mockClient := newMockGoogleCalendarClient()
+	syncer := &Syncer{
+		workClient: mockClient,
+	}
 	
-	// Create a timed OOF event
+	// Create a timed OOF event using EventType (most reliable method)
+	oofEvent := &calendar.Event{
+		Id:        "oof-1",
+		Summary:   "Out of Office",
+		EventType: "outOfOffice",
+		Start: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 14, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		End: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 15, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+	}
+
+	events := []*calendar.Event{oofEvent}
+	filtered := syncer.filterEvents(events)
+
+	if len(filtered) != 0 {
+		t.Errorf("Expected timed OOF event to be filtered out, but got %d events", len(filtered))
+	}
+}
+
+func TestFilterEvents_TimedOOF_TransparencyFallback(t *testing.T) {
+	mockClient := newMockGoogleCalendarClient()
+	syncer := &Syncer{
+		workClient: mockClient,
+	}
+	
+	// Create a timed OOF event using Transparency (fallback method)
+	// This tests backward compatibility with older events
 	oofEvent := &calendar.Event{
 		Id:      "oof-1",
 		Summary: "Out of Office",
@@ -113,12 +165,15 @@ func TestFilterEvents_TimedOOF(t *testing.T) {
 	filtered := syncer.filterEvents(events)
 
 	if len(filtered) != 0 {
-		t.Errorf("Expected timed OOF event to be filtered out, but got %d events", len(filtered))
+		t.Errorf("Expected timed OOF event (via transparency) to be filtered out, but got %d events", len(filtered))
 	}
 }
 
 func TestFilterEvents_AllDayOOF(t *testing.T) {
-	syncer := &Syncer{}
+	mockClient := newMockGoogleCalendarClient()
+	syncer := &Syncer{
+		workClient: mockClient,
+	}
 	
 	// Create an all-day OOF event
 	allDayOOF := &calendar.Event{
@@ -142,7 +197,10 @@ func TestFilterEvents_AllDayOOF(t *testing.T) {
 }
 
 func TestFilterEvents_OutsideWindow(t *testing.T) {
-	syncer := &Syncer{}
+	mockClient := newMockGoogleCalendarClient()
+	syncer := &Syncer{
+		workClient: mockClient,
+	}
 	
 	// Create an event at 5:00 AM - 5:30 AM (entirely outside window)
 	earlyEvent := &calendar.Event{
@@ -165,7 +223,10 @@ func TestFilterEvents_OutsideWindow(t *testing.T) {
 }
 
 func TestFilterEvents_PartialOverlap(t *testing.T) {
-	syncer := &Syncer{}
+	mockClient := newMockGoogleCalendarClient()
+	syncer := &Syncer{
+		workClient: mockClient,
+	}
 	
 	// Create an event at 5:30 AM - 6:30 AM (partially overlaps window)
 	overlapEvent := &calendar.Event{

@@ -66,6 +66,15 @@ func (c *Client) FindOrCreateCalendarByName(name string, colorID string) (string
 	return created.Id, nil
 }
 
+// GetEvent retrieves a single event by ID.
+func (c *Client) GetEvent(calendarID, eventID string) (*calendar.Event, error) {
+	event, err := c.service.Events.Get(calendarID, eventID).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get event: %w", err)
+	}
+	return event, nil
+}
+
 // GetEvents retrieves events from a calendar within the specified time window.
 // Important: Sets SingleEvents = true to expand recurring events.
 func (c *Client) GetEvents(calendarID string, timeMin, timeMax time.Time) ([]*calendar.Event, error) {
