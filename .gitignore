@@ -4,6 +4,7 @@ calsync
 # OAuth credentials and tokens (sensitive)
 credentials.json
 token.json
+config.json
 
 # Test coverage files
 coverage.out

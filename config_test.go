@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -12,8 +13,8 @@ func TestLoadConfig(t *testing.T) {
 	t.Setenv("SYNC_CALENDAR_NAME", "Work Sync")
 	t.Setenv("SYNC_CALENDAR_COLOR_ID", "7")
 
-	// Test loading from environment variables (empty flags)
-	config, err := LoadConfig("", "", "", "")
+	// Test loading from environment variables (empty flags and no config file)
+	config, err := LoadConfig("", "", "", "", "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -41,7 +42,7 @@ func TestLoadConfig_CommandLineFlags(t *testing.T) {
 	t.Setenv("PERSONAL_TOKEN_PATH", "/env/personal_token.json")
 
 	// Provide flags that should override env vars
-	config, err := LoadConfig("/flag/work_token.json", "/flag/personal_token.json", "Flag Calendar", "5")
+	config, err := LoadConfig("", "/flag/work_token.json", "/flag/personal_token.json", "Flag Calendar", "5", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -72,7 +73,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	t.Setenv("PERSONAL_TOKEN_PATH", "/tmp/personal_token.json")
 
 	// Test that defaults are used when neither flag nor env var is set for calendar name/color
-	config, err := LoadConfig("", "", "", "")
+	config, err := LoadConfig("", "", "", "", "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -87,12 +88,102 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_ConfigFile(t *testing.T) {
+	// Create a temporary config file
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.json")
+	
+	configJSON := `{
+		"work_token_path": "/config/work_token.json",
+		"personal_token_path": "/config/personal_token.json",
+		"sync_calendar_name": "Config Calendar",
+		"sync_calendar_color_id": "3",
+		"google_client_id": "config-client-id",
+		"google_client_secret": "config-client-secret"
+	}`
+	
+	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Load config from file
+	config, err := LoadConfig(configPath, "", "", "", "", "", "")
+	if err != nil {
+		t.Fatalf("LoadConfig() returned an error: %v", err)
+	}
+
+	if config.WorkTokenPath != "/config/work_token.json" {
+		t.Errorf("Expected WorkTokenPath to be '/config/work_token.json', got '%s'", config.WorkTokenPath)
+	}
+
+	if config.PersonalTokenPath != "/config/personal_token.json" {
+		t.Errorf("Expected PersonalTokenPath to be '/config/personal_token.json', got '%s'", config.PersonalTokenPath)
+	}
+
+	if config.SyncCalendarName != "Config Calendar" {
+		t.Errorf("Expected SyncCalendarName to be 'Config Calendar', got '%s'", config.SyncCalendarName)
+	}
+
+	if config.SyncCalendarColorID != "3" {
+		t.Errorf("Expected SyncCalendarColorID to be '3', got '%s'", config.SyncCalendarColorID)
+	}
+
+	if config.GoogleClientID != "config-client-id" {
+		t.Errorf("Expected GoogleClientID to be 'config-client-id', got '%s'", config.GoogleClientID)
+	}
+
+	if config.GoogleClientSecret != "config-client-secret" {
+		t.Errorf("Expected GoogleClientSecret to be 'config-client-secret', got '%s'", config.GoogleClientSecret)
+	}
+}
+
+func TestLoadConfig_EnvVarsOverrideConfigFile(t *testing.T) {
+	// Create a temporary config file
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.json")
+	
+	configJSON := `{
+		"work_token_path": "/config/work_token.json",
+		"personal_token_path": "/config/personal_token.json",
+		"google_client_id": "config-client-id",
+		"google_client_secret": "config-client-secret"
+	}`
+	
+	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Set environment variables that should override config file
+	t.Setenv("GOOGLE_CLIENT_ID", "env-client-id")
+	t.Setenv("GOOGLE_CLIENT_SECRET", "env-client-secret")
+
+	// Load config - env vars should override config file for secrets
+	config, err := LoadConfig(configPath, "", "", "", "", "", "")
+	if err != nil {
+		t.Fatalf("LoadConfig() returned an error: %v", err)
+	}
+
+	// These should come from config file
+	if config.WorkTokenPath != "/config/work_token.json" {
+		t.Errorf("Expected WorkTokenPath from config file, got '%s'", config.WorkTokenPath)
+	}
+
+	// These should be overridden by environment variables
+	if config.GoogleClientID != "env-client-id" {
+		t.Errorf("Expected GoogleClientID to be overridden by env var 'env-client-id', got '%s'", config.GoogleClientID)
+	}
+
+	if config.GoogleClientSecret != "env-client-secret" {
+		t.Errorf("Expected GoogleClientSecret to be overridden by env var 'env-client-secret', got '%s'", config.GoogleClientSecret)
+	}
+}
+
 func TestLoadConfigMissing(t *testing.T) {
 	// Clear all environment variables
 	os.Clearenv()
 
 	// Try to load config without setting any variables or flags
-	config, err := LoadConfig("", "", "", "")
+	config, err := LoadConfig("", "", "", "", "", "", "")
 	if err == nil {
 		t.Error("LoadConfig() should have returned an error when required token paths are missing")
 	}
