@@ -32,10 +32,8 @@ OPTIONS:
                                   (default: "Work Sync", overrides config file and SYNC_CALENDAR_NAME env var)
     --sync-calendar-color-id ID   Color ID for the sync calendar
                                   (default: "7" for Grape, overrides config file and SYNC_CALENDAR_COLOR_ID env var)
-    --google-client-id ID          Google OAuth 2.0 Client ID
-                                  (overrides config file and GOOGLE_CLIENT_ID env var)
-    --google-client-secret SECRET  Google OAuth 2.0 Client Secret
-                                  (overrides config file and GOOGLE_CLIENT_SECRET env var)
+    --google-credentials-path PATH Path to Google OAuth credentials JSON file
+                                  (overrides config file and GOOGLE_CREDENTIALS_PATH env var)
 
 CONFIGURATION PRECEDENCE (highest to lowest):
     1. Command-line flags
@@ -50,12 +48,12 @@ CONFIG FILE:
       "personal_token_path": "/path/to/personal_token.json",
       "sync_calendar_name": "Work Sync",
       "sync_calendar_color_id": "7",
-      "google_client_id": "your-client-id",
-      "google_client_secret": "your-client-secret"
+      "google_credentials_path": "/path/to/credentials.json"
     }
     
-    Note: Secrets (google_client_id, google_client_secret) can be overridden
-    by environment variables even if specified in the config file.
+    The Google credentials JSON file should be in the format downloaded from
+    Google Cloud Console. It should contain either an "installed" or "web"
+    section with "client_id" and "client_secret" fields.
 
 ENVIRONMENT VARIABLES:
     All settings can be provided via environment variables:
@@ -63,8 +61,7 @@ ENVIRONMENT VARIABLES:
         PERSONAL_TOKEN_PATH       Path to store the personal account OAuth token
         SYNC_CALENDAR_NAME        Name of the calendar to create/use (default: "Work Sync")
         SYNC_CALENDAR_COLOR_ID    Color ID for the sync calendar (default: "7" for Grape)
-        GOOGLE_CLIENT_ID          Google OAuth 2.0 Client ID (overrides config file)
-        GOOGLE_CLIENT_SECRET      Google OAuth 2.0 Client Secret (overrides config file)
+        GOOGLE_CREDENTIALS_PATH   Path to Google OAuth credentials JSON file
 
 DESCRIPTION:
     This tool performs a one-way sync from your work Google Calendar to your
@@ -85,8 +82,8 @@ EXAMPLES:
     # Run the sync with a config file
     %s --config /path/to/config.json
 
-    # Run the sync with config file, but override secrets via environment
-    GOOGLE_CLIENT_ID="your-id" GOOGLE_CLIENT_SECRET="your-secret" %s --config /path/to/config.json
+    # Run the sync with config file, but override credentials path via environment
+    GOOGLE_CREDENTIALS_PATH="/path/to/creds.json" %s --config /path/to/config.json
 
     # Run the sync with environment variables
     %s
@@ -96,8 +93,7 @@ EXAMPLES:
        --personal-token-path /path/to/personal_token.json \\
        --sync-calendar-name "My Work Sync" \\
        --sync-calendar-color-id "7" \\
-       --google-client-id "your-client-id" \\
-       --google-client-secret "your-client-secret"
+       --google-credentials-path /path/to/credentials.json
 
     # Mix config file and command-line flags
     %s --config /path/to/config.json --sync-calendar-name "Custom Name"
@@ -117,8 +113,7 @@ func main() {
 	personalTokenPath := flag.String("personal-token-path", "", "Path to store the personal account OAuth token")
 	syncCalendarName := flag.String("sync-calendar-name", "", "Name of the calendar to create/use (default: \"Work Sync\")")
 	syncCalendarColorID := flag.String("sync-calendar-color-id", "", "Color ID for the sync calendar (default: \"7\" for Grape)")
-	googleClientID := flag.String("google-client-id", "", "Google OAuth 2.0 Client ID (overrides config file and GOOGLE_CLIENT_ID env var)")
-	googleClientSecret := flag.String("google-client-secret", "", "Google OAuth 2.0 Client Secret (overrides config file and GOOGLE_CLIENT_SECRET env var)")
+	googleCredentialsPath := flag.String("google-credentials-path", "", "Path to Google OAuth credentials JSON file (overrides config file and GOOGLE_CREDENTIALS_PATH env var)")
 	flag.Parse()
 
 	// Show help if requested
@@ -133,23 +128,20 @@ func main() {
 	ctx := context.Background()
 
 	// Load configuration (precedence: flags > env vars > config file > defaults)
-	config, err := LoadConfig(*configFile, *workTokenPath, *personalTokenPath, *syncCalendarName, *syncCalendarColorID, *googleClientID, *googleClientSecret)
+	config, err := LoadConfig(*configFile, *workTokenPath, *personalTokenPath, *syncCalendarName, *syncCalendarColorID, *googleCredentialsPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Validate OAuth credentials
-	if config.GoogleClientID == "" {
-		log.Fatal("google_client_id must be provided via --google-client-id flag, GOOGLE_CLIENT_ID environment variable, or config file")
-	}
-
-	if config.GoogleClientSecret == "" {
-		log.Fatal("google_client_secret must be provided via --google-client-secret flag, GOOGLE_CLIENT_SECRET environment variable, or config file")
+	// Load Google OAuth credentials from the credentials file
+	clientID, clientSecret, err := LoadGoogleCredentials(config.GoogleCredentialsPath)
+	if err != nil {
+		log.Fatalf("Failed to load Google credentials: %v", err)
 	}
 
 	googleOAuthConfig := &oauth2.Config{
-		ClientID:     config.GoogleClientID,
-		ClientSecret: config.GoogleClientSecret,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
 		RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
 		Scopes: []string{
 			calendar.CalendarScope,

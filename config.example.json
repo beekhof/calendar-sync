@@ -3,7 +3,6 @@
   "personal_token_path": "/path/to/personal_token.json",
   "sync_calendar_name": "Work Sync",
   "sync_calendar_color_id": "7",
-  "google_client_id": "your-client-id-here",
-  "google_client_secret": "your-client-secret-here"
+  "google_credentials_path": "/path/to/credentials.json"
 }
 

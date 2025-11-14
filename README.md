@@ -44,7 +44,8 @@ go build -o calsync .
 3. Enable the Google Calendar API
 4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
 5. Choose "Desktop app" as the application type
-6. Save your **Client ID** and **Client Secret**
+6. Click "Download" to download the credentials JSON file
+7. Save the JSON file in a secure location (e.g., `~/credentials.json`)
 
 ### 2. Configure the Tool
 
@@ -60,12 +61,11 @@ Create a `config.json` file:
   "personal_token_path": "/path/to/personal_token.json",
   "sync_calendar_name": "Work Sync",
   "sync_calendar_color_id": "7",
-  "google_client_id": "your-client-id-here",
-  "google_client_secret": "your-client-secret-here"
+  "google_credentials_path": "/path/to/credentials.json"
 }
 ```
 
-**Note**: For security, you can omit `google_client_id` and `google_client_secret` from the config file and provide them via environment variables instead.
+**Note**: The `google_credentials_path` should point to the JSON file downloaded from Google Cloud Console. The file should contain either an "installed" or "web" section with "client_id" and "client_secret" fields.
 
 #### Option B: Environment Variables
 
@@ -74,8 +74,7 @@ export WORK_TOKEN_PATH="/path/to/work_token.json"
 export PERSONAL_TOKEN_PATH="/path/to/personal_token.json"
 export SYNC_CALENDAR_NAME="Work Sync"
 export SYNC_CALENDAR_COLOR_ID="7"
-export GOOGLE_CLIENT_ID="your-client-id"
-export GOOGLE_CLIENT_SECRET="your-client-secret"
+export GOOGLE_CREDENTIALS_PATH="/path/to/credentials.json"
 ```
 
 #### Option C: Command-Line Flags
@@ -86,8 +85,7 @@ export GOOGLE_CLIENT_SECRET="your-client-secret"
   --personal-token-path /path/to/personal_token.json \
   --sync-calendar-name "Work Sync" \
   --sync-calendar-color-id "7" \
-  --google-client-id "your-client-id" \
-  --google-client-secret "your-client-secret"
+  --google-credentials-path /path/to/credentials.json
 ```
 
 ### Configuration Precedence
@@ -99,7 +97,7 @@ Settings are loaded in the following order (highest to lowest priority):
 3. **Config file** (`--config`)
 4. **Defaults** (lowest priority)
 
-**Security Note**: Secrets (`google_client_id`, `google_client_secret`) can be overridden by environment variables even if specified in the config file. This allows you to keep secrets out of version-controlled config files.
+**Security Note**: The `google_credentials_path` can be overridden by the `GOOGLE_CREDENTIALS_PATH` environment variable. This allows you to keep the credentials file path out of version-controlled config files, or use different credentials files for different environments.
 
 ## Usage
 
@@ -130,8 +128,8 @@ After the first run, the tool uses stored refresh tokens and runs automatically 
 # Using command-line flags
 ./calsync --work-token-path /path/to/work.json --personal-token-path /path/to/personal.json ...
 
-# Mix config file and environment variables (secrets from env)
-GOOGLE_CLIENT_ID="id" GOOGLE_CLIENT_SECRET="secret" ./calsync --config config.json
+# Mix config file and environment variables (override credentials path)
+GOOGLE_CREDENTIALS_PATH="/path/to/creds.json" ./calsync --config config.json
 ```
 
 ### Scheduled Execution (Cron)
@@ -152,8 +150,7 @@ crontab -e
 
 - **`work_token_path`**: Path where the work account OAuth token will be stored
 - **`personal_token_path`**: Path where the personal account OAuth token will be stored
-- **`google_client_id`**: Google OAuth 2.0 Client ID
-- **`google_client_secret`**: Google OAuth 2.0 Client Secret
+- **`google_credentials_path`**: Path to the Google OAuth credentials JSON file (downloaded from Google Cloud Console)
 
 ### Optional Settings
 
