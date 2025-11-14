@@ -13,27 +13,43 @@ type Config struct {
 	SyncCalendarColorID string
 }
 
-// LoadConfig loads configuration from environment variables.
-// Returns an error if any required environment variable is missing.
-func LoadConfig() (*Config, error) {
-	workTokenPath := os.Getenv("WORK_TOKEN_PATH")
+// LoadConfig loads configuration from command-line flags or environment variables.
+// Command-line flags take precedence over environment variables.
+// Returns an error if any required value is missing.
+func LoadConfig(workTokenPathFlag, personalTokenPathFlag, syncCalendarNameFlag, syncCalendarColorIDFlag string) (*Config, error) {
+	// Use flag value if provided, otherwise fall back to environment variable
+	workTokenPath := workTokenPathFlag
 	if workTokenPath == "" {
-		return nil, fmt.Errorf("WORK_TOKEN_PATH environment variable is required")
+		workTokenPath = os.Getenv("WORK_TOKEN_PATH")
+	}
+	if workTokenPath == "" {
+		return nil, fmt.Errorf("WORK_TOKEN_PATH must be provided via --work-token-path flag or WORK_TOKEN_PATH environment variable")
 	}
 
-	personalTokenPath := os.Getenv("PERSONAL_TOKEN_PATH")
+	personalTokenPath := personalTokenPathFlag
 	if personalTokenPath == "" {
-		return nil, fmt.Errorf("PERSONAL_TOKEN_PATH environment variable is required")
+		personalTokenPath = os.Getenv("PERSONAL_TOKEN_PATH")
+	}
+	if personalTokenPath == "" {
+		return nil, fmt.Errorf("PERSONAL_TOKEN_PATH must be provided via --personal-token-path flag or PERSONAL_TOKEN_PATH environment variable")
 	}
 
-	syncCalendarName := os.Getenv("SYNC_CALENDAR_NAME")
+	syncCalendarName := syncCalendarNameFlag
 	if syncCalendarName == "" {
-		return nil, fmt.Errorf("SYNC_CALENDAR_NAME environment variable is required")
+		syncCalendarName = os.Getenv("SYNC_CALENDAR_NAME")
+	}
+	if syncCalendarName == "" {
+		// Default to "Work Sync" if not specified
+		syncCalendarName = "Work Sync"
 	}
 
-	syncCalendarColorID := os.Getenv("SYNC_CALENDAR_COLOR_ID")
+	syncCalendarColorID := syncCalendarColorIDFlag
 	if syncCalendarColorID == "" {
-		return nil, fmt.Errorf("SYNC_CALENDAR_COLOR_ID environment variable is required")
+		syncCalendarColorID = os.Getenv("SYNC_CALENDAR_COLOR_ID")
+	}
+	if syncCalendarColorID == "" {
+		// Default to "7" (Grape) if not specified
+		syncCalendarColorID = "7"
 	}
 
 	return &Config{
