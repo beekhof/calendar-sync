@@ -142,7 +142,7 @@ func main() {
 	googleOAuthConfig := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
+		RedirectURL:  "http://127.0.0.1:8080", // Will be updated dynamically by auth flow
 		Scopes: []string{
 			calendar.CalendarScope,
 			calendar.CalendarEventsScope,

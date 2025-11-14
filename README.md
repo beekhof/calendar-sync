@@ -44,8 +44,11 @@ go build -o calsync .
 3. Enable the Google Calendar API
 4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
 5. Choose "Desktop app" as the application type
-6. Click "Download" to download the credentials JSON file
-7. Save the JSON file in a secure location (e.g., `~/credentials.json`)
+6. **Important**: Add `http://127.0.0.1:8080` (or `http://localhost:8080`) to the "Authorized redirect URIs" list
+7. Click "Download" to download the credentials JSON file
+8. Save the JSON file in a secure location (e.g., `~/credentials.json`)
+
+**Note**: The tool uses a local HTTP server on port 8080 (or a random port if 8080 is unavailable) to receive the OAuth callback. Make sure this redirect URI is added to your OAuth client configuration in Google Cloud Console.
 
 ### 2. Configure the Tool
 
