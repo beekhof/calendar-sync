@@ -1,14 +1,15 @@
 # Calendar Sync Tool
 
-A one-way synchronization tool that syncs events from a work Google Calendar to a personal Google Calendar. This tool is designed to work around admin restrictions by using API access instead of the standard calendar sharing UI.
+A one-way synchronization tool that syncs events from a work Google Calendar to a personal calendar (Google Calendar or Apple Calendar/iCloud). This tool is designed to work around admin restrictions by using API access instead of the standard calendar sharing UI.
 
 ## Overview
 
-The Calendar Sync Tool creates a read-only "Work Sync" calendar in your personal Google account, populated with filtered events from your work calendar. The work calendar is the "source of truth" - any manual changes made to the synced calendar will be overwritten on the next sync.
+The Calendar Sync Tool creates a read-only "Work Sync" calendar in your personal calendar account (Google Calendar or Apple Calendar/iCloud), populated with filtered events from your work Google Calendar. The work calendar is the "source of truth" - any manual changes made to the synced calendar will be overwritten on the next sync.
 
 ### Key Features
 
-- **One-way sync**: Work calendar → Personal calendar
+- **One-way sync**: Work calendar → Personal calendar (Google or Apple)
+- **Multiple destination support**: Sync to Google Calendar or Apple Calendar/iCloud
 - **Automatic filtering**: Only syncs relevant events (6 AM - midnight, excludes timed OOF events)
 - **Recurring event expansion**: Expands recurring events into individual instances
 - **Two-week window**: Syncs current week + next week
@@ -85,25 +86,68 @@ Create a `config.json` file:
 
 **Note**: The `google_credentials_path` should point to the JSON file downloaded from Google Cloud Console. The file should contain either an "installed" or "web" section with "client_id" and "client_secret" fields.
 
+**Example for Apple Calendar destination:**
+```json
+{
+  "work_token_path": "/path/to/work_token.json",
+  "sync_calendar_name": "Work Sync",
+  "sync_calendar_color_id": "7",
+  "google_credentials_path": "/path/to/credentials.json",
+  "destination_type": "apple",
+  "apple_caldav_server_url": "https://caldav.icloud.com",
+  "apple_caldav_username": "your-email@icloud.com",
+  "apple_caldav_password": "app-specific-password"
+}
+```
+
+**Note**: For Apple Calendar, you need to generate an app-specific password from iCloud:
+1. Go to https://appleid.apple.com/account/manage
+2. Sign in with your Apple ID
+3. Under "Security" → "App-Specific Passwords", click "Generate Password"
+4. Use this password for `apple_caldav_password`
+
 #### Option B: Environment Variables
 
 ```bash
+# For Google Calendar destination
 export WORK_TOKEN_PATH="/path/to/work_token.json"
 export PERSONAL_TOKEN_PATH="/path/to/personal_token.json"
 export SYNC_CALENDAR_NAME="Work Sync"
 export SYNC_CALENDAR_COLOR_ID="7"
 export GOOGLE_CREDENTIALS_PATH="/path/to/credentials.json"
+export DESTINATION_TYPE="google"
+
+# For Apple Calendar destination
+export WORK_TOKEN_PATH="/path/to/work_token.json"
+export SYNC_CALENDAR_NAME="Work Sync"
+export GOOGLE_CREDENTIALS_PATH="/path/to/credentials.json"
+export DESTINATION_TYPE="apple"
+export APPLE_CALDAV_SERVER_URL="https://caldav.icloud.com"
+export APPLE_CALDAV_USERNAME="your-email@icloud.com"
+export APPLE_CALDAV_PASSWORD="app-specific-password"
 ```
 
 #### Option C: Command-Line Flags
 
 ```bash
+# For Google Calendar destination
 ./calsync \
   --work-token-path /path/to/work_token.json \
   --personal-token-path /path/to/personal_token.json \
   --sync-calendar-name "Work Sync" \
   --sync-calendar-color-id "7" \
-  --google-credentials-path /path/to/credentials.json
+  --google-credentials-path /path/to/credentials.json \
+  --destination-type google
+
+# For Apple Calendar destination
+./calsync \
+  --work-token-path /path/to/work_token.json \
+  --sync-calendar-name "Work Sync" \
+  --google-credentials-path /path/to/credentials.json \
+  --destination-type apple \
+  --apple-caldav-server-url "https://caldav.icloud.com" \
+  --apple-caldav-username "your-email@icloud.com" \
+  --apple-caldav-password "app-specific-password"
 ```
 
 ### Configuration Precedence
@@ -166,9 +210,16 @@ crontab -e
 
 ### Required Settings
 
-- **`work_token_path`**: Path where the work account OAuth token will be stored
-- **`personal_token_path`**: Path where the personal account OAuth token will be stored
-- **`google_credentials_path`**: Path to the Google OAuth credentials JSON file (downloaded from Google Cloud Console)
+- **`work_token_path`**: Path where the work account OAuth token will be stored (always required)
+- **`google_credentials_path`**: Path to the Google OAuth credentials JSON file (downloaded from Google Cloud Console) (always required)
+- **`personal_token_path`**: Path where the personal account OAuth token will be stored (required for Google Calendar destination only)
+- **`destination_type`**: Destination calendar type - `"google"` or `"apple"` (default: `"google"`)
+
+### Apple Calendar Settings (required when `destination_type` is `"apple"`)
+
+- **`apple_caldav_server_url`**: CalDAV server URL (e.g., `"https://caldav.icloud.com"` for iCloud)
+- **`apple_caldav_username`**: Your iCloud email address
+- **`apple_caldav_password`**: App-specific password from iCloud (generate at https://appleid.apple.com/account/manage)
 
 ### Optional Settings
 

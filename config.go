@@ -43,11 +43,17 @@ func LoadGoogleCredentials(path string) (clientID, clientSecret string, err erro
 
 // Config holds the configuration for the calendar sync tool.
 type Config struct {
-	WorkTokenPath          string `json:"work_token_path,omitempty"`
-	PersonalTokenPath      string `json:"personal_token_path,omitempty"`
-	SyncCalendarName       string `json:"sync_calendar_name,omitempty"`
-	SyncCalendarColorID    string `json:"sync_calendar_color_id,omitempty"`
-	GoogleCredentialsPath  string `json:"google_credentials_path,omitempty"`
+	WorkTokenPath         string `json:"work_token_path,omitempty"`
+	PersonalTokenPath     string `json:"personal_token_path,omitempty"`
+	SyncCalendarName      string `json:"sync_calendar_name,omitempty"`
+	SyncCalendarColorID   string `json:"sync_calendar_color_id,omitempty"`
+	GoogleCredentialsPath string `json:"google_credentials_path,omitempty"`
+
+	// Apple Calendar destination configuration
+	DestinationType      string `json:"destination_type,omitempty"`        // "google" or "apple"
+	AppleCalDAVServerURL string `json:"apple_caldav_server_url,omitempty"` // e.g., "https://caldav.icloud.com"
+	AppleCalDAVUsername  string `json:"apple_caldav_username,omitempty"`   // iCloud email
+	AppleCalDAVPassword  string `json:"apple_caldav_password,omitempty"`   // App-specific password
 }
 
 // LoadConfigFromFile loads configuration from a JSON file.
@@ -71,7 +77,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 // 3. Config file
 // 4. Defaults
 // Returns an error if any required value is missing.
-func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syncCalendarNameFlag, syncCalendarColorIDFlag, googleCredentialsPathFlag string) (*Config, error) {
+func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syncCalendarNameFlag, syncCalendarColorIDFlag, googleCredentialsPathFlag, destinationTypeFlag, appleCalDAVServerURLFlag, appleCalDAVUsernameFlag, appleCalDAVPasswordFlag string) (*Config, error) {
 	var config Config
 
 	// Step 1: Load from config file if provided
@@ -100,6 +106,18 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 	if googleCredentialsPath := os.Getenv("GOOGLE_CREDENTIALS_PATH"); googleCredentialsPath != "" {
 		config.GoogleCredentialsPath = googleCredentialsPath
 	}
+	if destinationType := os.Getenv("DESTINATION_TYPE"); destinationType != "" {
+		config.DestinationType = destinationType
+	}
+	if appleCalDAVServerURL := os.Getenv("APPLE_CALDAV_SERVER_URL"); appleCalDAVServerURL != "" {
+		config.AppleCalDAVServerURL = appleCalDAVServerURL
+	}
+	if appleCalDAVUsername := os.Getenv("APPLE_CALDAV_USERNAME"); appleCalDAVUsername != "" {
+		config.AppleCalDAVUsername = appleCalDAVUsername
+	}
+	if appleCalDAVPassword := os.Getenv("APPLE_CALDAV_PASSWORD"); appleCalDAVPassword != "" {
+		config.AppleCalDAVPassword = appleCalDAVPassword
+	}
 
 	// Step 3: Override with command-line flags (highest priority)
 	if workTokenPathFlag != "" {
@@ -117,18 +135,52 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 	if googleCredentialsPathFlag != "" {
 		config.GoogleCredentialsPath = googleCredentialsPathFlag
 	}
+	if destinationTypeFlag != "" {
+		config.DestinationType = destinationTypeFlag
+	}
+	if appleCalDAVServerURLFlag != "" {
+		config.AppleCalDAVServerURL = appleCalDAVServerURLFlag
+	}
+	if appleCalDAVUsernameFlag != "" {
+		config.AppleCalDAVUsername = appleCalDAVUsernameFlag
+	}
+	if appleCalDAVPasswordFlag != "" {
+		config.AppleCalDAVPassword = appleCalDAVPasswordFlag
+	}
 
 	// Step 4: Apply defaults and validate required fields
 	if config.WorkTokenPath == "" {
 		return nil, fmt.Errorf("work_token_path must be provided via --work-token-path flag, WORK_TOKEN_PATH environment variable, or config file")
 	}
 
-	if config.PersonalTokenPath == "" {
-		return nil, fmt.Errorf("personal_token_path must be provided via --personal-token-path flag, PERSONAL_TOKEN_PATH environment variable, or config file")
+	// Validate based on destination type
+	if config.DestinationType == "" {
+		config.DestinationType = "google" // Default to Google
 	}
 
-	if config.GoogleCredentialsPath == "" {
-		return nil, fmt.Errorf("google_credentials_path must be provided via --google-credentials-path flag, GOOGLE_CREDENTIALS_PATH environment variable, or config file")
+	// Personal token path is only required for Google Calendar destination
+	if config.DestinationType == "google" {
+		if config.PersonalTokenPath == "" {
+			return nil, fmt.Errorf("personal_token_path must be provided via --personal-token-path flag, PERSONAL_TOKEN_PATH environment variable, or config file (required for Google Calendar destination)")
+		}
+	}
+
+	if config.DestinationType == "google" {
+		if config.GoogleCredentialsPath == "" {
+			return nil, fmt.Errorf("google_credentials_path must be provided via --google-credentials-path flag, GOOGLE_CREDENTIALS_PATH environment variable, or config file")
+		}
+	} else if config.DestinationType == "apple" {
+		if config.AppleCalDAVServerURL == "" {
+			return nil, fmt.Errorf("apple_caldav_server_url must be provided for Apple Calendar destination")
+		}
+		if config.AppleCalDAVUsername == "" {
+			return nil, fmt.Errorf("apple_caldav_username must be provided for Apple Calendar destination")
+		}
+		if config.AppleCalDAVPassword == "" {
+			return nil, fmt.Errorf("apple_caldav_password must be provided for Apple Calendar destination")
+		}
+	} else {
+		return nil, fmt.Errorf("destination_type must be 'google' or 'apple', got '%s'", config.DestinationType)
 	}
 
 	if config.SyncCalendarName == "" {
@@ -141,4 +193,3 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 
 	return &config, nil
 }
-

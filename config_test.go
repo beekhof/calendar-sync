@@ -15,7 +15,7 @@ func TestLoadConfig(t *testing.T) {
 	t.Setenv("SYNC_CALENDAR_COLOR_ID", "7")
 
 	// Test loading from environment variables (empty flags and no config file)
-	config, err := LoadConfig("", "", "", "", "", "")
+	config, err := LoadConfig("", "", "", "", "", "", "", "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestLoadConfig_CommandLineFlags(t *testing.T) {
 	t.Setenv("GOOGLE_CREDENTIALS_PATH", "/env/credentials.json")
 
 	// Provide flags that should override env vars
-	config, err := LoadConfig("", "/flag/work_token.json", "/flag/personal_token.json", "Flag Calendar", "5", "/flag/credentials.json")
+	config, err := LoadConfig("", "/flag/work_token.json", "/flag/personal_token.json", "Flag Calendar", "5", "/flag/credentials.json", "", "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	t.Setenv("GOOGLE_CREDENTIALS_PATH", "/tmp/credentials.json")
 
 	// Test that defaults are used when neither flag nor env var is set for calendar name/color
-	config, err := LoadConfig("", "", "", "", "", "")
+	config, err := LoadConfig("", "", "", "", "", "", "", "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestLoadConfig_ConfigFile(t *testing.T) {
 	}
 
 	// Load config from file
-	config, err := LoadConfig(configPath, "", "", "", "", "")
+	config, err := LoadConfig(configPath, "", "", "", "", "", "", "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestLoadConfig_EnvVarsOverrideConfigFile(t *testing.T) {
 	t.Setenv("GOOGLE_CREDENTIALS_PATH", "/env/credentials.json")
 
 	// Load config - env var should override config file
-	config, err := LoadConfig(configPath, "", "", "", "", "")
+	config, err := LoadConfig(configPath, "", "", "", "", "", "", "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestLoadConfigMissing(t *testing.T) {
 	os.Clearenv()
 
 	// Try to load config without setting any variables or flags
-	config, err := LoadConfig("", "", "", "", "", "")
+	config, err := LoadConfig("", "", "", "", "", "", "", "", "", "")
 	if err == nil {
 		t.Error("LoadConfig() should have returned an error when required token paths are missing")
 	}

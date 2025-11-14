@@ -3,6 +3,7 @@
   "personal_token_path": "/path/to/personal_token.json",
   "sync_calendar_name": "Work Sync",
   "sync_calendar_color_id": "7",
-  "google_credentials_path": "/path/to/credentials.json"
+  "google_credentials_path": "/path/to/credentials.json",
+  "destination_type": "google"
 }
 

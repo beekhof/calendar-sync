@@ -9,7 +9,7 @@ import (
 	"google.golang.org/api/calendar/v3"
 )
 
-// mockGoogleCalendarClient is a mock implementation of googleCalendarClient for testing.
+// mockGoogleCalendarClient is a mock implementation of CalendarClient for testing.
 type mockGoogleCalendarClient struct {
 	calendars        map[string]string // name -> id
 	events          map[string][]*calendar.Event // calendarID -> events

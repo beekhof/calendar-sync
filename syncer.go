@@ -9,27 +9,15 @@ import (
 	"google.golang.org/api/calendar/v3"
 )
 
-// googleCalendarClient is an interface for Google Calendar operations.
-// This allows us to mock the client in tests.
-type googleCalendarClient interface {
-	FindOrCreateCalendarByName(name string, colorID string) (string, error)
-	GetEvents(calendarID string, timeMin, timeMax time.Time) ([]*calendar.Event, error)
-	GetEvent(calendarID, eventID string) (*calendar.Event, error)
-	InsertEvent(calendarID string, event *calendar.Event) error
-	UpdateEvent(calendarID, eventID string, event *calendar.Event) error
-	DeleteEvent(calendarID, eventID string) error
-	FindEventsByWorkID(calendarID, workEventID string) ([]*calendar.Event, error)
-}
-
 // Syncer handles the synchronization logic between work and personal calendars.
 type Syncer struct {
-	workClient     googleCalendarClient
-	personalClient googleCalendarClient
+	workClient     CalendarClient
+	personalClient CalendarClient
 	config         *Config
 }
 
 // NewSyncer creates a new Syncer instance.
-func NewSyncer(workClient, personalClient googleCalendarClient, config *Config) *Syncer {
+func NewSyncer(workClient, personalClient CalendarClient, config *Config) *Syncer {
 	return &Syncer{
 		workClient:     workClient,
 		personalClient: personalClient,
@@ -83,8 +71,8 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 		endMinutes := endHour*60 + endMinute
 
 		// Window: 6:00 AM (360 minutes) to 12:00 AM (1440 minutes, which is midnight of next day)
-		windowStart := 6 * 60  // 6:00 AM
-		windowEnd := 24 * 60   // 12:00 AM (midnight)
+		windowStart := 6 * 60 // 6:00 AM
+		windowEnd := 24 * 60  // 12:00 AM (midnight)
 
 		// Check if event overlaps with the window
 		// Event overlaps if:
@@ -109,7 +97,7 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 // 2. Transparency field (fallback - indicates free/busy status)
 // 3. Parent event check (for recurring event instances)
 // 4. Keyword matching in summary (last resort)
-func isOutOfOffice(event *calendar.Event, client googleCalendarClient) bool {
+func isOutOfOffice(event *calendar.Event, client CalendarClient) bool {
 	// Primary check: EventType field is the most reliable indicator
 	// Google Calendar sets this to "outOfOffice" for OOF events
 	if event.EventType == "outOfOffice" {
@@ -155,11 +143,11 @@ func isOutOfOffice(event *calendar.Event, client googleCalendarClient) bool {
 // based on the source work event.
 func (s *Syncer) prepareSyncEvent(sourceEvent *calendar.Event) *calendar.Event {
 	destEvent := &calendar.Event{
-		Summary:     sourceEvent.Summary,
-		Description: sourceEvent.Description,
-		Location:    sourceEvent.Location,
-		Start:       sourceEvent.Start,
-		End:         sourceEvent.End,
+		Summary:        sourceEvent.Summary,
+		Description:    sourceEvent.Description,
+		Location:       sourceEvent.Location,
+		Start:          sourceEvent.Start,
+		End:            sourceEvent.End,
 		ConferenceData: sourceEvent.ConferenceData,
 		// Omit attendees (guest list)
 		// Set reminders to use default
@@ -232,7 +220,7 @@ func (s *Syncer) Sync(ctx context.Context) error {
 
 	// Calculate time window: start of current week (Monday) to end of next week (Sunday)
 	now := time.Now()
-	
+
 	// Find the start of the current week (Monday)
 	weekday := int(now.Weekday())
 	if weekday == 0 {
@@ -317,4 +305,3 @@ func (s *Syncer) Sync(ctx context.Context) error {
 	log.Println("Sync complete.")
 	return nil
 }
-
