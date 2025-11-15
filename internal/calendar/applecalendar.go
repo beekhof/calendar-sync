@@ -1424,6 +1424,32 @@ func icalToGoogleEvent(icalCal *ical.Calendar) (*calendar.Event, error) {
 		event.ExtendedProperties.Private["workEventId"] = xWorkID.Value
 	}
 
+	// Extract Google Meet/conference data from URL property or X-GOOGLE-CONFERENCE
+	var meetURL string
+	if urlProp := vevent.Props.Get(ical.PropURL); urlProp != nil {
+		if urlText, err := urlProp.Text(); err == nil {
+			meetURL = urlText
+		}
+	}
+	// Fallback to X-GOOGLE-CONFERENCE if URL not found
+	if meetURL == "" {
+		if xConfProp := vevent.Props.Get("X-GOOGLE-CONFERENCE"); xConfProp != nil {
+			meetURL = xConfProp.Value
+		}
+	}
+
+	// If we found a Google Meet URL, create conferenceData
+	if meetURL != "" {
+		event.ConferenceData = &calendar.ConferenceData{
+			EntryPoints: []*calendar.EntryPoint{
+				{
+					EntryPointType: "video",
+					Uri:            meetURL,
+				},
+			},
+		}
+	}
+
 	return event, nil
 }
 
@@ -1522,6 +1548,20 @@ func googleEventToICal(event *calendar.Event) (*ical.Calendar, error) {
 	if event.ExtendedProperties != nil && event.ExtendedProperties.Private != nil {
 		if workID := event.ExtendedProperties.Private["workEventId"]; workID != "" {
 			vevent.Props.SetText("X-WORK-EVENT-ID", workID)
+		}
+	}
+
+	// Store Google Meet/conference data
+	// Extract video entry point from conferenceData
+	if event.ConferenceData != nil && event.ConferenceData.EntryPoints != nil {
+		for _, entryPoint := range event.ConferenceData.EntryPoints {
+			if entryPoint.EntryPointType == "video" && entryPoint.Uri != "" {
+				// Store the Google Meet URL in the URL property (standard iCalendar)
+				vevent.Props.SetText(ical.PropURL, entryPoint.Uri)
+				// Also store in X-GOOGLE-CONFERENCE for compatibility
+				vevent.Props.SetText("X-GOOGLE-CONFERENCE", entryPoint.Uri)
+				break // Use the first video entry point
+			}
 		}
 	}
 

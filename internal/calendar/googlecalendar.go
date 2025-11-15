@@ -67,6 +67,7 @@ func (c *Client) FindOrCreateCalendarByName(name string, colorID string) (string
 }
 
 // GetEvent retrieves a single event by ID.
+// Conference data (Google Meet links) is included by default if available.
 func (c *Client) GetEvent(calendarID, eventID string) (*calendar.Event, error) {
 	event, err := c.service.Events.Get(calendarID, eventID).Do()
 	if err != nil {
@@ -77,6 +78,7 @@ func (c *Client) GetEvent(calendarID, eventID string) (*calendar.Event, error) {
 
 // GetEvents retrieves events from a calendar within the specified time window.
 // Important: Sets SingleEvents = true to expand recurring events.
+// Conference data (Google Meet links) is included by default if available.
 func (c *Client) GetEvents(calendarID string, timeMin, timeMax time.Time) ([]*calendar.Event, error) {
 	eventsList, err := c.service.Events.List(calendarID).
 		TimeMin(timeMin.Format(time.RFC3339)).

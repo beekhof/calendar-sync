@@ -266,7 +266,28 @@ func eventsEqual(event1, event2 *calendar.Event) bool {
 		return false
 	}
 
+	// Compare conference data (Google Meet links)
+	meetURL1 := getMeetURL(event1)
+	meetURL2 := getMeetURL(event2)
+	if meetURL1 != meetURL2 {
+		log.Printf("DEBUG: conference data mismatch: %v != %v", meetURL1, meetURL2)
+		return false
+	}
+
 	return true
+}
+
+// getMeetURL extracts the Google Meet URL from an event's conferenceData.
+func getMeetURL(event *calendar.Event) string {
+	if event.ConferenceData == nil || event.ConferenceData.EntryPoints == nil {
+		return ""
+	}
+	for _, entryPoint := range event.ConferenceData.EntryPoints {
+		if entryPoint.EntryPointType == "video" && entryPoint.Uri != "" {
+			return entryPoint.Uri
+		}
+	}
+	return ""
 }
 
 // Sync performs the main synchronization logic.
