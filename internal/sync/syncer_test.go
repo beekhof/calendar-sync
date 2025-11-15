@@ -1,10 +1,12 @@
-package main
+package sync
 
 import (
 	"context"
 	"fmt"
 	"testing"
 	"time"
+
+	"calendar-sync/internal/config"
 
 	"google.golang.org/api/calendar/v3"
 )
@@ -252,12 +254,12 @@ func TestSync_NewEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
 	
-	config := &Config{
+	cfg := &config.Config{
 		SyncCalendarName:    "Work Sync",
 		SyncCalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, config)
+	syncer := NewSyncer(workClient, personalClient, cfg)
 
 	// Add a new event to work calendar
 	workEvent := &calendar.Event{
@@ -296,12 +298,12 @@ func TestSync_DeletedEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
 	
-	config := &Config{
+	cfg := &config.Config{
 		SyncCalendarName:    "Work Sync",
 		SyncCalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, config)
+	syncer := NewSyncer(workClient, personalClient, cfg)
 
 	// Add an event to personal calendar that no longer exists in work
 	destCalendarID := "cal_Work Sync"
@@ -346,12 +348,12 @@ func TestSync_UnchangedEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
 	
-	config := &Config{
+	cfg := &config.Config{
 		SyncCalendarName:    "Work Sync",
 		SyncCalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, config)
+	syncer := NewSyncer(workClient, personalClient, cfg)
 
 	// Add the same event to both calendars
 	workEvent := &calendar.Event{
@@ -401,12 +403,12 @@ func TestSync_ChangedEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
 	
-	config := &Config{
+	cfg := &config.Config{
 		SyncCalendarName:    "Work Sync",
 		SyncCalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, config)
+	syncer := NewSyncer(workClient, personalClient, cfg)
 
 	// Work event has been updated
 	workEvent := &calendar.Event{

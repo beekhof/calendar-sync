@@ -1,5 +1,6 @@
 # Binary
-calsync
+/calsync
+cmd/calsync/calsync
 
 # OAuth credentials and tokens (sensitive)
 credentials.json

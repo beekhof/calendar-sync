@@ -7,8 +7,12 @@ import (
 	"log"
 	"os"
 
+	"calendar-sync/internal/auth"
+	calclient "calendar-sync/internal/calendar"
+	"calendar-sync/internal/config"
+	"calendar-sync/internal/sync"
+
 	"golang.org/x/oauth2"
-	"google.golang.org/api/calendar/v3"
 )
 
 func printHelp() {
@@ -160,14 +164,14 @@ func main() {
 	ctx := context.Background()
 
 	// Load configuration (precedence: flags > env vars > config file > defaults)
-	config, err := LoadConfig(*configFile, *workTokenPath, *personalTokenPath, *syncCalendarName, *syncCalendarColorID, *googleCredentialsPath, *destinationType, *appleCalDAVServerURL, *appleCalDAVUsername, *appleCalDAVPassword)
+	cfg, err := config.LoadConfig(*configFile, *workTokenPath, *personalTokenPath, *syncCalendarName, *syncCalendarColorID, *googleCredentialsPath, *destinationType, *appleCalDAVServerURL, *appleCalDAVUsername, *appleCalDAVPassword)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
 	// Work calendar is always Google Calendar (source)
 	// Load Google OAuth credentials from the credentials file
-	clientID, clientSecret, err := LoadGoogleCredentials(config.GoogleCredentialsPath)
+	clientID, clientSecret, err := config.LoadGoogleCredentials(cfg.GoogleCredentialsPath)
 	if err != nil {
 		log.Fatalf("Failed to load Google credentials: %v", err)
 	}
@@ -177,8 +181,8 @@ func main() {
 		ClientSecret: clientSecret,
 		RedirectURL:  "http://127.0.0.1:8080", // Will be updated dynamically by auth flow
 		Scopes: []string{
-			calendar.CalendarScope,
-			calendar.CalendarEventsScope,
+			"https://www.googleapis.com/auth/calendar",
+			"https://www.googleapis.com/auth/calendar.events",
 		},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "https://accounts.google.com/o/oauth2/auth",
@@ -187,44 +191,44 @@ func main() {
 	}
 
 	// Create the work token store (always Google)
-	workTokenStore := NewFileTokenStore(config.WorkTokenPath)
+	workTokenStore := auth.NewFileTokenStore(cfg.WorkTokenPath)
 
 	// Get the authenticated work client (always Google)
-	workHTTPClient, err := GetAuthenticatedClient(ctx, googleOAuthConfig, workTokenStore)
+	workHTTPClient, err := auth.GetAuthenticatedClient(ctx, googleOAuthConfig, workTokenStore)
 	if err != nil {
 		log.Fatalf("Failed to authenticate work account: %v", err)
 	}
 
 	// Create the work calendar client (always Google)
-	workClient, err := NewClient(ctx, workHTTPClient)
+	workClient, err := calclient.NewClient(ctx, workHTTPClient)
 	if err != nil {
 		log.Fatalf("Failed to create work calendar client: %v", err)
 	}
 
 	// Create the personal/destination calendar client based on destination type
-	var personalClient CalendarClient
-	if config.DestinationType == "apple" {
+	var personalClient calclient.CalendarClient
+	if cfg.DestinationType == "apple" {
 		// Create Apple Calendar client using CalDAV
-		personalClient, err = NewAppleCalendarClient(ctx, config.AppleCalDAVServerURL, config.AppleCalDAVUsername, config.AppleCalDAVPassword)
+		personalClient, err = calclient.NewAppleCalendarClient(ctx, cfg.AppleCalDAVServerURL, cfg.AppleCalDAVUsername, cfg.AppleCalDAVPassword)
 		if err != nil {
 			log.Fatalf("Failed to create Apple Calendar client: %v", err)
 		}
 	} else {
 		// Default to Google Calendar
-		personalTokenStore := NewFileTokenStore(config.PersonalTokenPath)
-		personalHTTPClient, err := GetAuthenticatedClient(ctx, googleOAuthConfig, personalTokenStore)
+		personalTokenStore := auth.NewFileTokenStore(cfg.PersonalTokenPath)
+		personalHTTPClient, err := auth.GetAuthenticatedClient(ctx, googleOAuthConfig, personalTokenStore)
 		if err != nil {
 			log.Fatalf("Failed to authenticate personal account: %v", err)
 		}
 
-		personalClient, err = NewClient(ctx, personalHTTPClient)
+		personalClient, err = calclient.NewClient(ctx, personalHTTPClient)
 		if err != nil {
 			log.Fatalf("Failed to create personal calendar client: %v", err)
 		}
 	}
 
 	// Create the Syncer
-	syncer := NewSyncer(workClient, personalClient, config)
+	syncer := sync.NewSyncer(workClient, personalClient, cfg)
 
 	// Run the sync
 	if err := syncer.Sync(ctx); err != nil {

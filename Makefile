@@ -12,7 +12,7 @@ LDFLAGS=-ldflags "-s -w"
 # Build the binary
 build:
 	@echo "Building $(BINARY_NAME)..."
-	@go build $(LDFLAGS) -o $(BINARY_NAME) .
+	@go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/calsync
 	@echo "Build complete: $(BINARY_NAME)"
 
 # Run all tests
@@ -48,7 +48,7 @@ clean:
 # Install the binary to GOPATH/bin
 install:
 	@echo "Installing $(BINARY_NAME)..."
-	@go install $(LDFLAGS) .
+	@go install $(LDFLAGS) ./cmd/calsync
 	@echo "Install complete"
 
 # Run the tool (requires -in and -out flags)
