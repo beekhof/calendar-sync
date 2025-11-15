@@ -709,10 +709,8 @@ func (c *AppleCalendarClient) createCalendar(path, name string) error {
 		headers += fmt.Sprintf("  %s: %s\n", k, strings.Join(v, ", "))
 	}
 
-	errorMsg := fmt.Sprintf("failed to create calendar with MKCALENDAR: HTTP %d\nRequest URL: %s\nRequest Body: %s\nResponse Body: %s\nResponse Headers:\n%s\n\nNote: According to https://www.onecal.io/blog/how-to-integrate-icloud-calendar-api-into-your-app, iCloud supports MKCALENDAR, but there may be specific requirements or permissions needed. Please check:\n1. Your app-specific password has write permissions\n2. The calendar path format is correct\n3. If issues persist, create the calendar manually in Apple Calendar/iCloud",
+	return fmt.Errorf("failed to create calendar with MKCALENDAR: HTTP %d\nRequest URL: %s\nRequest Body: %s\nResponse Body: %s\nResponse Headers:\n%s\n\nNote: According to https://www.onecal.io/blog/how-to-integrate-icloud-calendar-api-into-your-app, iCloud supports MKCALENDAR, but there may be specific requirements or permissions needed. Please check:\n1. Your app-specific password has write permissions\n2. The calendar path format is correct\n3. If issues persist, create the calendar manually in Apple Calendar/iCloud",
 		resp.StatusCode, url, mkcalendarBody, respBodyStr, headers)
-
-	return fmt.Errorf(errorMsg)
 }
 
 // FindOrCreateCalendarByName finds an existing calendar by name or creates a new one.
@@ -933,16 +931,16 @@ func (c *AppleCalendarClient) GetEvents(calendarID string, timeMin, timeMax time
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	// Parse XML to extract calendar-data elements
-	events, err := parseCalDAVResponse(body)
+	// Parse XML to extract calendar-data elements and hrefs
+	caldavEvents, err := parseCalDAVResponse(body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CalDAV response: %w", err)
 	}
 
 	// Convert iCalendar events to Google Calendar Event format
 	var googleEvents []*calendar.Event
-	for _, icalData := range events {
-		icalCal, err := ical.NewDecoder(strings.NewReader(icalData)).Decode()
+	for _, caldavEvent := range caldavEvents {
+		icalCal, err := ical.NewDecoder(strings.NewReader(caldavEvent.Data)).Decode()
 		if err != nil {
 			fmt.Printf("Warning: failed to parse iCalendar data: %v\n", err)
 			continue
@@ -953,6 +951,13 @@ func (c *AppleCalendarClient) GetEvents(calendarID string, timeMin, timeMax time
 			fmt.Printf("Warning: failed to convert event: %v\n", err)
 			continue
 		}
+
+		// Use the href (filename) as the event ID for deletion purposes
+		// This ensures we can delete events using the correct filename
+		if caldavEvent.Href != "" {
+			googleEvent.Id = caldavEvent.Href
+		}
+
 		googleEvents = append(googleEvents, googleEvent)
 	}
 
@@ -998,24 +1003,24 @@ func (c *AppleCalendarClient) InsertEvent(calendarID string, event *calendar.Eve
 
 	// Generate a unique event ID - ensure it ends with .ics
 	// The event.Id from Google Calendar might contain special characters that need to be sanitized
-	eventID := event.Id
-	if eventID == "" {
+	originalEventID := event.Id
+	if originalEventID == "" {
 		// Generate a UID if not present
-		eventID = fmt.Sprintf("%s@calendar-sync", time.Now().Format(time.RFC3339Nano))
+		originalEventID = fmt.Sprintf("%s@calendar-sync", time.Now().Format(time.RFC3339Nano))
 	}
 
 	// Sanitize the event ID for use in URL (remove special characters that might cause issues)
-	eventID = strings.ReplaceAll(eventID, "/", "-")
-	eventID = strings.ReplaceAll(eventID, "\\", "-")
-	eventID = strings.ReplaceAll(eventID, ":", "-")
+	sanitizedEventID := strings.ReplaceAll(originalEventID, "/", "-")
+	sanitizedEventID = strings.ReplaceAll(sanitizedEventID, "\\", "-")
+	sanitizedEventID = strings.ReplaceAll(sanitizedEventID, ":", "-")
 
-	if !strings.HasSuffix(eventID, ".ics") {
-		eventID = eventID + ".ics"
+	if !strings.HasSuffix(sanitizedEventID, ".ics") {
+		sanitizedEventID = sanitizedEventID + ".ics"
 	}
 
 	// Build the full URL - ensure calendarID ends with / and we don't have double slashes
 	calendarPath := strings.TrimSuffix(calendarID, "/") + "/"
-	url := strings.TrimSuffix(c.serverURL, "/") + calendarPath + eventID
+	url := strings.TrimSuffix(c.serverURL, "/") + calendarPath + sanitizedEventID
 
 	// Create PUT request with proper headers for iCalendar
 	req, err := http.NewRequest("PUT", url, &buf)
@@ -1060,22 +1065,180 @@ func (c *AppleCalendarClient) InsertEvent(calendarID string, event *calendar.Eve
 
 // UpdateEvent updates an existing event in a calendar.
 func (c *AppleCalendarClient) UpdateEvent(calendarID, eventID string, event *calendar.Event) error {
-	// Same as InsertEvent for CalDAV
-	return c.InsertEvent(calendarID, event)
+	// For CalDAV, update is the same as insert (PUT), but we need to use the existing eventID
+	// (filename) instead of generating a new one from event.Id
+	// IMPORTANT: We must preserve the original UID from the existing event to avoid creating duplicates
+	// CalDAV servers use the UID to identify events. If the UID changes, it creates a new event instead of updating.
+	// Fetch the raw iCalendar to get the original UID
+	existingUID := ""
+	resp, err := c.makeRequest("GET", calendarID+eventID, nil)
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			icalCalExisting, err := ical.NewDecoder(resp.Body).Decode()
+			if err == nil {
+				// Find the VEVENT component
+				for _, comp := range icalCalExisting.Children {
+					if comp.Name == ical.CompEvent {
+						if uidProp := comp.Props.Get(ical.PropUID); uidProp != nil {
+							if uidText, err := uidProp.Text(); err == nil {
+								existingUID = uidText
+							}
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// If we got the existing UID, store it temporarily so googleEventToICal can use it
+	if existingUID != "" {
+		if event.ExtendedProperties == nil {
+			event.ExtendedProperties = &calendar.EventExtendedProperties{
+				Private: make(map[string]string),
+			}
+		}
+		if event.ExtendedProperties.Private == nil {
+			event.ExtendedProperties.Private = make(map[string]string)
+		}
+		// Store the original UID temporarily in a private property
+		event.ExtendedProperties.Private["_originalUID"] = existingUID
+	}
+
+	// Convert Google Calendar Event to iCalendar format
+	icalCal, err := googleEventToICal(event)
+	if err != nil {
+		return fmt.Errorf("failed to convert event: %w", err)
+	}
+
+	// If we have an original UID, use it instead of the generated one
+	if event.ExtendedProperties != nil && event.ExtendedProperties.Private != nil {
+		if originalUID := event.ExtendedProperties.Private["_originalUID"]; originalUID != "" {
+			// Replace the UID in the iCalendar with the original one
+			for _, comp := range icalCal.Children {
+				if comp.Name == ical.CompEvent {
+					comp.Props.SetText(ical.PropUID, originalUID)
+					break
+				}
+			}
+			// Clean up the temporary property
+			delete(event.ExtendedProperties.Private, "_originalUID")
+		}
+	}
+
+	// Serialize to iCalendar format
+	var buf bytes.Buffer
+	enc := ical.NewEncoder(&buf)
+	if err := enc.Encode(icalCal); err != nil {
+		return fmt.Errorf("failed to encode iCalendar: %w", err)
+	}
+
+	// Use the provided eventID (which is the filename from GetEvents)
+	// Sanitize it just in case
+	sanitizedEventID := strings.ReplaceAll(eventID, "/", "-")
+	sanitizedEventID = strings.ReplaceAll(sanitizedEventID, "\\", "-")
+	sanitizedEventID = strings.ReplaceAll(sanitizedEventID, ":", "-")
+
+	// Ensure it ends with .ics
+	if !strings.HasSuffix(sanitizedEventID, ".ics") {
+		sanitizedEventID = sanitizedEventID + ".ics"
+	}
+
+	// Build the full URL - ensure calendarID ends with / and we don't have double slashes
+	calendarPath := strings.TrimSuffix(calendarID, "/") + "/"
+	url := strings.TrimSuffix(c.serverURL, "/") + calendarPath + sanitizedEventID
+
+	// Create PUT request with proper headers for iCalendar
+	req, err := http.NewRequest("PUT", url, &buf)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.SetBasicAuth(c.username, c.password)
+	req.Header.Set("User-Agent", "calendar-sync/1.0")
+	req.Header.Set("Content-Type", "text/calendar; charset=utf-8")
+
+	// Get iCalendar content for error reporting
+	icalContent := buf.String()
+
+	resp2, err2 := c.httpClient.Do(req)
+	if err2 != nil {
+		return fmt.Errorf("failed to update event: %w", err2)
+	}
+	resp = resp2
+	err = err2
+	defer resp.Body.Close()
+
+	// Read response body for error details
+	respBody, _ := io.ReadAll(resp.Body)
+	respBodyStr := string(respBody)
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		// Include detailed error information
+		headers := ""
+		for k, v := range resp.Header {
+			headers += fmt.Sprintf("  %s: %s\n", k, strings.Join(v, ", "))
+		}
+		// Include first 1000 chars of iCalendar content in error for debugging
+		icalPreview := icalContent
+		if len(icalPreview) > 1000 {
+			icalPreview = icalPreview[:1000] + "..."
+		}
+		return fmt.Errorf("failed to update event: HTTP %d\nRequest URL: %s\niCalendar Content (first 1000 chars):\n%s\nResponse Body: %s\nResponse Headers:\n%s",
+			resp.StatusCode, url, icalPreview, respBodyStr, headers)
+	}
+
+	return nil
 }
 
 // DeleteEvent deletes an event from a calendar.
 func (c *AppleCalendarClient) DeleteEvent(calendarID, eventID string) error {
-	resp, err := c.makeRequest("DELETE", calendarID+eventID, nil)
+	// The eventID should already be the filename (href) from GetEvents, which includes .ics
+	// But we'll sanitize it just in case and ensure it has .ics
+	sanitizedID := strings.ReplaceAll(eventID, "/", "-")
+	sanitizedID = strings.ReplaceAll(sanitizedID, "\\", "-")
+	sanitizedID = strings.ReplaceAll(sanitizedID, ":", "-")
+
+	// Ensure it ends with .ics
+	if !strings.HasSuffix(sanitizedID, ".ics") {
+		sanitizedID = sanitizedID + ".ics"
+	}
+
+	// Build the full URL - ensure calendarID ends with / and we don't have double slashes
+	calendarPath := strings.TrimSuffix(calendarID, "/") + "/"
+	url := strings.TrimSuffix(c.serverURL, "/") + calendarPath + sanitizedID
+
+	// Create DELETE request
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.SetBasicAuth(c.username, c.password)
+	req.Header.Set("User-Agent", "calendar-sync/1.0")
+
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to delete event: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to delete event: HTTP %d", resp.StatusCode)
+	// Read response body for error details
+	respBody, _ := io.ReadAll(resp.Body)
+	respBodyStr := string(respBody)
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+		// Include detailed error information
+		headers := ""
+		for k, v := range resp.Header {
+			headers += fmt.Sprintf("  %s: %s\n", k, strings.Join(v, ", "))
+		}
+		return fmt.Errorf("failed to delete event: HTTP %d\nRequest URL: %s\nResponse Body: %s\nResponse Headers:\n%s",
+			resp.StatusCode, url, respBodyStr, headers)
 	}
 
+	// 404 is acceptable - event might already be deleted
 	return nil
 }
 
@@ -1105,8 +1268,14 @@ func (c *AppleCalendarClient) FindEventsByWorkID(calendarID, workEventID string)
 	return results, nil
 }
 
-// parseCalDAVResponse parses a CalDAV REPORT response to extract iCalendar data.
-func parseCalDAVResponse(body []byte) ([]string, error) {
+// CalDAVEvent represents an event with its href (filename) and iCalendar data.
+type CalDAVEvent struct {
+	Href string // The href (filename) from the CalDAV response
+	Data string // The iCalendar data
+}
+
+// parseCalDAVResponse parses a CalDAV REPORT response to extract iCalendar data and hrefs.
+func parseCalDAVResponse(body []byte) ([]CalDAVEvent, error) {
 	type CalendarData struct {
 		XMLName xml.Name `xml:"calendar-data"`
 		Data    string   `xml:",chardata"`
@@ -1118,6 +1287,7 @@ func parseCalDAVResponse(body []byte) ([]string, error) {
 
 	type Response struct {
 		XMLName xml.Name `xml:"response"`
+		Href    string   `xml:"href"`
 		Prop    Prop     `xml:"propstat>prop"`
 	}
 
@@ -1131,10 +1301,21 @@ func parseCalDAVResponse(body []byte) ([]string, error) {
 		return nil, fmt.Errorf("failed to parse XML: %w", err)
 	}
 
-	var events []string
+	var events []CalDAVEvent
 	for _, resp := range multistatus.Responses {
 		if resp.Prop.CalendarData.Data != "" {
-			events = append(events, resp.Prop.CalendarData.Data)
+			// Extract just the filename from the href (remove the calendar path)
+			href := resp.Href
+			// Remove leading slashes and extract just the filename
+			href = strings.TrimPrefix(href, "/")
+			// If href contains a path, extract just the filename
+			if idx := strings.LastIndex(href, "/"); idx >= 0 {
+				href = href[idx+1:]
+			}
+			events = append(events, CalDAVEvent{
+				Href: href,
+				Data: resp.Prop.CalendarData.Data,
+			})
 		}
 	}
 
