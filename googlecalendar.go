@@ -31,7 +31,7 @@ func (c *Client) FindOrCreateCalendarByName(name string, colorID string) (string
 	// List the user's calendars
 	calendarList, err := c.service.CalendarList.List().Do()
 	if err != nil {
-		return "", fmt.Errorf("failed to list calendars: %w", err)
+		return "", fmt.Errorf("Google: failed to list calendars: %w", err)
 	}
 
 	// Check if a calendar with the given name exists
@@ -95,7 +95,7 @@ func (c *Client) GetEvents(calendarID string, timeMin, timeMax time.Time) ([]*ca
 func (c *Client) FindEventsByWorkID(calendarID, workEventID string) ([]*calendar.Event, error) {
 	// Use privateExtendedProperty to search for events with the workEventId
 	query := fmt.Sprintf("workEventId=%s", workEventID)
-	
+
 	eventsList, err := c.service.Events.List(calendarID).
 		PrivateExtendedProperty(query).
 		SingleEvents(true).
@@ -143,4 +143,3 @@ func (c *Client) DeleteEvent(calendarID, eventID string) error {
 
 	return nil
 }
-

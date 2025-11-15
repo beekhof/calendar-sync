@@ -66,6 +66,35 @@ go build -o calsync .
   - If the app is in "Testing" mode, add your email addresses as test users
   - If you want to use it with any Google account, you'll need to publish the app (requires verification for sensitive scopes)
 
+### 2. Apple Calendar/iCloud Setup
+
+For Apple Calendar destination, you need:
+
+1. **App-Specific Password**:
+   - Go to https://appleid.apple.com/account/manage
+   - Sign in with your Apple ID
+   - Under "Security" → "App-Specific Passwords", click "Generate Password"
+   - Use this password for `apple_caldav_password` (not your regular Apple ID password)
+
+2. **CalDAV Server URL**:
+   - For iCloud, use: `https://caldav.icloud.com`
+   - Some iCloud accounts may use a server-specific URL like `https://pXX-caldav.icloud.com` (where XX is a number)
+   - If you get a 403 error, try checking your iCloud calendar settings to find the correct server URL
+
+3. **Username**:
+   - Use your full iCloud email address (e.g., `yourname@icloud.com`)
+
+**Troubleshooting Apple Calendar**:
+- **HTTP 403 Forbidden**: 
+  - Verify you're using an app-specific password (not your regular Apple ID password)
+  - Check that the CalDAV server URL is correct
+  - Ensure your iCloud account has calendar access enabled
+  - Try using just the username part (before @) if the full email doesn't work
+- **Failed to discover principal**:
+  - The tool will try multiple common paths automatically
+  - Check the error message for which paths were tried
+  - Verify your iCloud account is active and calendar is enabled
+
 ### 2. Configure the Tool
 
 You can configure the tool using one of three methods (or a combination):
