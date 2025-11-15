@@ -198,6 +198,53 @@ func TestFilterEvents_AllDayOOF(t *testing.T) {
 	}
 }
 
+func TestFilterEvents_WorkLocation(t *testing.T) {
+	mockClient := newMockGoogleCalendarClient()
+	syncer := &Syncer{
+		workClient: mockClient,
+	}
+	
+	// Create work location events (should be filtered out)
+	workLocationEvents := []*calendar.Event{
+		{
+			Id:      "loc-1",
+			Summary: "Remote Australia (Office)",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-15",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-16",
+			},
+		},
+		{
+			Id:      "loc-2",
+			Summary: "Working from Home",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-16",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-17",
+			},
+		},
+		{
+			Id:      "loc-3",
+			Summary: "Office",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-17",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-18",
+			},
+		},
+	}
+
+	filtered := syncer.filterEvents(workLocationEvents)
+
+	if len(filtered) != 0 {
+		t.Errorf("Expected all work location events to be filtered out, but got %d events", len(filtered))
+	}
+}
+
 func TestFilterEvents_OutsideWindow(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
 	syncer := &Syncer{
