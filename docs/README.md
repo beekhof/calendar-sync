@@ -12,7 +12,7 @@ The Calendar Sync Tool creates a read-only "Work Sync" calendar in your personal
 - **Multiple destination support**: Sync to Google Calendar or Apple Calendar/iCloud
 - **Automatic filtering**: Only syncs relevant events (6 AM - midnight, excludes timed OOF events)
 - **Recurring event expansion**: Expands recurring events into individual instances
-- **Two-week window**: Syncs current week + next week
+- **Configurable sync window**: Customize how many weeks forward and backward to sync (default: 2 weeks forward, 0 weeks past)
 - **Automatic cleanup**: Removes stale events outside the sync window
 - **Flexible configuration**: Config file, environment variables, or command-line flags
 
@@ -109,7 +109,10 @@ Create a `config.json` file:
   "personal_token_path": "/path/to/personal_token.json",
   "sync_calendar_name": "Work Sync",
   "sync_calendar_color_id": "7",
-  "google_credentials_path": "/path/to/credentials.json"
+  "google_credentials_path": "/path/to/credentials.json",
+  "destination_type": "google",
+  "sync_window_weeks": 2,
+  "sync_window_weeks_past": 0
 }
 ```
 
@@ -125,7 +128,9 @@ Create a `config.json` file:
   "destination_type": "apple",
   "apple_caldav_server_url": "https://caldav.icloud.com",
   "apple_caldav_username": "your-email@icloud.com",
-  "apple_caldav_password": "app-specific-password"
+  "apple_caldav_password": "app-specific-password",
+  "sync_window_weeks": 2,
+  "sync_window_weeks_past": 0
 }
 ```
 
@@ -254,6 +259,8 @@ crontab -e
 
 - **`sync_calendar_name`**: Name of the calendar to create/use (default: `"Work Sync"`)
 - **`sync_calendar_color_id`**: Color ID for the calendar (default: `"7"` for Grape)
+- **`sync_window_weeks`**: Number of weeks to sync forward from start of current week (default: `2`)
+- **`sync_window_weeks_past`**: Number of weeks to sync backward from start of current week (default: `0`)
 
 ### Calendar Color IDs
 
@@ -282,11 +289,20 @@ The tool applies the following filters when syncing events:
 
 ### Sync Window
 
-The tool syncs events within a **two-week rolling window**:
-- Current week (Monday - Sunday)
-- Next week (Monday - Sunday)
+The tool syncs events within a configurable rolling window starting from the current week (Monday). By default, it syncs:
+- **Forward**: 2 weeks (current week + next week)
+- **Backward**: 0 weeks (no past events)
 
-Events outside this window are automatically cleaned up.
+You can customize the sync window using:
+- **Config file**: `"sync_window_weeks": 3, "sync_window_weeks_past": 1`
+- **Environment variables**: `SYNC_WINDOW_WEEKS=3 SYNC_WINDOW_WEEKS_PAST=1`
+
+**Examples**:
+- `sync_window_weeks: 2, sync_window_weeks_past: 0` (default): Syncs current week + next week
+- `sync_window_weeks: 4, sync_window_weeks_past: 1`: Syncs last week + current week + next 3 weeks (5 weeks total)
+- `sync_window_weeks: 1, sync_window_weeks_past: 2`: Syncs 2 weeks ago + last week + current week (3 weeks total)
+
+Events outside the configured window are automatically cleaned up.
 
 ## Event Data
 
@@ -315,9 +331,10 @@ If you get authentication errors:
 
 ### Missing Events
 
-- Check that events fall within the sync window (current week + next week)
+- Check that events fall within the configured sync window (default: current week + next week)
 - Verify events are not timed OOF events (these are filtered out)
 - Ensure events are between 6 AM and midnight
+- If you need past events, set `sync_window_weeks_past` to a value greater than 0
 
 ### Permission Errors
 
