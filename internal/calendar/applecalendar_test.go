@@ -28,21 +28,25 @@ func loadTestConfig(t *testing.T) *config.Config {
 	// Load the config with environment variable overrides
 	loadedConfig, err := config.LoadConfig(
 		"../../config.json", // config file path
-		cfgData.WorkTokenPath,
-		cfgData.PersonalTokenPath,
-		cfgData.SyncCalendarName,
-		cfgData.SyncCalendarColorID,
-		cfgData.GoogleCredentialsPath,
-		cfgData.DestinationType,
-		cfgData.AppleCalDAVServerURL,
-		cfgData.AppleCalDAVUsername,
-		cfgData.AppleCalDAVPassword,
+		cfgData.WorkTokenPath, // work token path override
+		cfgData.GoogleCredentialsPath, // google credentials path override
 	)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
 	return loadedConfig
+}
+
+// getAppleDestination finds the first Apple destination from the config
+func getAppleDestination(t *testing.T, cfg *config.Config) *config.Destination {
+	for i := range cfg.Destinations {
+		if cfg.Destinations[i].Type == "apple" {
+			return &cfg.Destinations[i]
+		}
+	}
+	t.Fatal("No Apple destination found in config")
+	return nil
 }
 
 // TestAppleCalendar_InsertAndGet tests inserting an event and then retrieving it
@@ -52,23 +56,21 @@ func TestAppleCalendar_InsertAndGet(t *testing.T) {
 	}
 
 	config := loadTestConfig(t)
-	if config.DestinationType != "apple" {
-		t.Skip("Skipping Apple Calendar test - destination_type is not 'apple'")
-	}
+	dest := getAppleDestination(t, config)
 
 	ctx := context.Background()
 	client, err := NewAppleCalendarClient(
 		ctx,
-		config.AppleCalDAVServerURL,
-		config.AppleCalDAVUsername,
-		config.AppleCalDAVPassword,
+		dest.ServerURL,
+		dest.Username,
+		dest.Password,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Apple Calendar client: %v", err)
 	}
 
 	// Find or create test calendar (use the sync calendar from config)
-	calendarID, err := client.FindOrCreateCalendarByName(config.SyncCalendarName, config.SyncCalendarColorID)
+	calendarID, err := client.FindOrCreateCalendarByName(dest.CalendarName, dest.CalendarColorID)
 	if err != nil {
 		t.Fatalf("Failed to find or create calendar: %v", err)
 	}
@@ -143,23 +145,21 @@ func TestAppleCalendar_FindByWorkID(t *testing.T) {
 	}
 
 	config := loadTestConfig(t)
-	if config.DestinationType != "apple" {
-		t.Skip("Skipping Apple Calendar test - destination_type is not 'apple'")
-	}
+	dest := getAppleDestination(t, config)
 
 	ctx := context.Background()
 	client, err := NewAppleCalendarClient(
 		ctx,
-		config.AppleCalDAVServerURL,
-		config.AppleCalDAVUsername,
-		config.AppleCalDAVPassword,
+		dest.ServerURL,
+		dest.Username,
+		dest.Password,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Apple Calendar client: %v", err)
 	}
 
 	// Find or create test calendar (use the sync calendar from config)
-	calendarID, err := client.FindOrCreateCalendarByName(config.SyncCalendarName, config.SyncCalendarColorID)
+	calendarID, err := client.FindOrCreateCalendarByName(dest.CalendarName, dest.CalendarColorID)
 	if err != nil {
 		t.Fatalf("Failed to find or create calendar: %v", err)
 	}
@@ -232,23 +232,21 @@ func TestAppleCalendar_Delete(t *testing.T) {
 	}
 
 	config := loadTestConfig(t)
-	if config.DestinationType != "apple" {
-		t.Skip("Skipping Apple Calendar test - destination_type is not 'apple'")
-	}
+	dest := getAppleDestination(t, config)
 
 	ctx := context.Background()
 	client, err := NewAppleCalendarClient(
 		ctx,
-		config.AppleCalDAVServerURL,
-		config.AppleCalDAVUsername,
-		config.AppleCalDAVPassword,
+		dest.ServerURL,
+		dest.Username,
+		dest.Password,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Apple Calendar client: %v", err)
 	}
 
 	// Find or create test calendar (use the sync calendar from config)
-	calendarID, err := client.FindOrCreateCalendarByName(config.SyncCalendarName, config.SyncCalendarColorID)
+	calendarID, err := client.FindOrCreateCalendarByName(dest.CalendarName, dest.CalendarColorID)
 	if err != nil {
 		t.Fatalf("Failed to find or create calendar: %v", err)
 	}
@@ -348,23 +346,21 @@ func TestAppleCalendar_Update(t *testing.T) {
 	}
 
 	config := loadTestConfig(t)
-	if config.DestinationType != "apple" {
-		t.Skip("Skipping Apple Calendar test - destination_type is not 'apple'")
-	}
+	dest := getAppleDestination(t, config)
 
 	ctx := context.Background()
 	client, err := NewAppleCalendarClient(
 		ctx,
-		config.AppleCalDAVServerURL,
-		config.AppleCalDAVUsername,
-		config.AppleCalDAVPassword,
+		dest.ServerURL,
+		dest.Username,
+		dest.Password,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Apple Calendar client: %v", err)
 	}
 
 	// Find or create test calendar (use the sync calendar from config)
-	calendarID, err := client.FindOrCreateCalendarByName(config.SyncCalendarName, config.SyncCalendarColorID)
+	calendarID, err := client.FindOrCreateCalendarByName(dest.CalendarName, dest.CalendarColorID)
 	if err != nil {
 		t.Fatalf("Failed to find or create calendar: %v", err)
 	}
@@ -501,23 +497,21 @@ func TestAppleCalendar_InsertDeleteInsert(t *testing.T) {
 	}
 
 	config := loadTestConfig(t)
-	if config.DestinationType != "apple" {
-		t.Skip("Skipping Apple Calendar test - destination_type is not 'apple'")
-	}
+	dest := getAppleDestination(t, config)
 
 	ctx := context.Background()
 	client, err := NewAppleCalendarClient(
 		ctx,
-		config.AppleCalDAVServerURL,
-		config.AppleCalDAVUsername,
-		config.AppleCalDAVPassword,
+		dest.ServerURL,
+		dest.Username,
+		dest.Password,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Apple Calendar client: %v", err)
 	}
 
 	// Find or create test calendar (use the sync calendar from config)
-	calendarID, err := client.FindOrCreateCalendarByName(config.SyncCalendarName, config.SyncCalendarColorID)
+	calendarID, err := client.FindOrCreateCalendarByName(dest.CalendarName, dest.CalendarColorID)
 	if err != nil {
 		t.Fatalf("Failed to find or create calendar: %v", err)
 	}
@@ -648,23 +642,21 @@ func TestAppleCalendar_AllDayEvent(t *testing.T) {
 	}
 
 	config := loadTestConfig(t)
-	if config.DestinationType != "apple" {
-		t.Skip("Skipping Apple Calendar test - destination_type is not 'apple'")
-	}
+	dest := getAppleDestination(t, config)
 
 	ctx := context.Background()
 	client, err := NewAppleCalendarClient(
 		ctx,
-		config.AppleCalDAVServerURL,
-		config.AppleCalDAVUsername,
-		config.AppleCalDAVPassword,
+		dest.ServerURL,
+		dest.Username,
+		dest.Password,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Apple Calendar client: %v", err)
 	}
 
 	// Find or create test calendar (use the sync calendar from config)
-	calendarID, err := client.FindOrCreateCalendarByName(config.SyncCalendarName, config.SyncCalendarColorID)
+	calendarID, err := client.FindOrCreateCalendarByName(dest.CalendarName, dest.CalendarColorID)
 	if err != nil {
 		t.Fatalf("Failed to find or create calendar: %v", err)
 	}
@@ -748,23 +740,21 @@ func TestAppleCalendar_GetEvent(t *testing.T) {
 	}
 
 	config := loadTestConfig(t)
-	if config.DestinationType != "apple" {
-		t.Skip("Skipping Apple Calendar test - destination_type is not 'apple'")
-	}
+	dest := getAppleDestination(t, config)
 
 	ctx := context.Background()
 	client, err := NewAppleCalendarClient(
 		ctx,
-		config.AppleCalDAVServerURL,
-		config.AppleCalDAVUsername,
-		config.AppleCalDAVPassword,
+		dest.ServerURL,
+		dest.Username,
+		dest.Password,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Apple Calendar client: %v", err)
 	}
 
 	// Find or create test calendar (use the sync calendar from config)
-	calendarID, err := client.FindOrCreateCalendarByName(config.SyncCalendarName, config.SyncCalendarColorID)
+	calendarID, err := client.FindOrCreateCalendarByName(dest.CalendarName, dest.CalendarColorID)
 	if err != nil {
 		t.Fatalf("Failed to find or create calendar: %v", err)
 	}
@@ -852,23 +842,21 @@ func TestAppleCalendar_SpecialCharacters(t *testing.T) {
 	}
 
 	config := loadTestConfig(t)
-	if config.DestinationType != "apple" {
-		t.Skip("Skipping Apple Calendar test - destination_type is not 'apple'")
-	}
+	dest := getAppleDestination(t, config)
 
 	ctx := context.Background()
 	client, err := NewAppleCalendarClient(
 		ctx,
-		config.AppleCalDAVServerURL,
-		config.AppleCalDAVUsername,
-		config.AppleCalDAVPassword,
+		dest.ServerURL,
+		dest.Username,
+		dest.Password,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Apple Calendar client: %v", err)
 	}
 
 	// Find or create test calendar (use the sync calendar from config)
-	calendarID, err := client.FindOrCreateCalendarByName(config.SyncCalendarName, config.SyncCalendarColorID)
+	calendarID, err := client.FindOrCreateCalendarByName(dest.CalendarName, dest.CalendarColorID)
 	if err != nil {
 		t.Fatalf("Failed to find or create calendar: %v", err)
 	}
