@@ -55,20 +55,8 @@ CONFIGURATION PRECEDENCE (highest to lowest):
     4. Defaults
 
 CONFIG FILE:
-    All settings can be specified in a JSON config file. For a single destination
-    (backward compatible):
-    {
-      "work_token_path": "/path/to/work_token.json",
-      "personal_token_path": "/path/to/personal_token.json",
-      "sync_calendar_name": "Work Sync",
-      "sync_calendar_color_id": "7",
-      "google_credentials_path": "/path/to/credentials.json",
-      "destination_type": "google",
-      "sync_window_weeks": 2,
-      "sync_window_weeks_past": 0
-    }
-    
-    For multiple destinations (recommended):
+    All settings must be specified in a JSON config file. The destinations array
+    is required and must contain at least one destination. Example:
     {
       "work_token_path": "/path/to/work_token.json",
       "google_credentials_path": "/path/to/credentials.json",
@@ -102,18 +90,13 @@ CONFIG FILE:
     Generate one at: https://appleid.apple.com/account/manage
 
 ENVIRONMENT VARIABLES:
-    All settings can be provided via environment variables:
+    Some settings can be provided via environment variables:
         WORK_TOKEN_PATH          Path to store the work account OAuth token
-        PERSONAL_TOKEN_PATH       Path to store the personal account OAuth token (Google only)
-        SYNC_CALENDAR_NAME        Name of the calendar to create/use (default: "Work Sync")
-        SYNC_CALENDAR_COLOR_ID    Color ID for the sync calendar (default: "7" for Grape)
         GOOGLE_CREDENTIALS_PATH   Path to Google OAuth credentials JSON file
-        DESTINATION_TYPE          Destination calendar type: 'google' or 'apple' (default: 'google')
         SYNC_WINDOW_WEEKS         Number of weeks to sync forward from start of current week (default: 2)
         SYNC_WINDOW_WEEKS_PAST    Number of weeks to sync backward from start of current week (default: 0)
-        APPLE_CALDAV_SERVER_URL   Apple CalDAV server URL (Apple only)
-        APPLE_CALDAV_USERNAME      Apple CalDAV username (Apple only)
-        APPLE_CALDAV_PASSWORD      Apple CalDAV password (Apple only)
+    
+    Note: Destination configuration must be specified in the config file.
 
 DESCRIPTION:
     This tool performs a one-way sync from your work Google Calendar to one or more
@@ -145,18 +128,8 @@ EXAMPLES:
     # Run the sync with config file, but override credentials path via environment
     GOOGLE_CREDENTIALS_PATH="/path/to/creds.json" %s --config /path/to/config.json
 
-    # Run the sync with environment variables
-    %s
-
-    # Run the sync with command-line flags
-    %s --work-token-path /path/to/work_token.json \\
-       --personal-token-path /path/to/personal_token.json \\
-       --sync-calendar-name "My Work Sync" \\
-       --sync-calendar-color-id "7" \\
-       --google-credentials-path /path/to/credentials.json
-
-    # Mix config file and command-line flags
-    %s --config /path/to/config.json --sync-calendar-name "Custom Name"
+    # Run the sync with config file, overriding work token path
+    %s --config /path/to/config.json --work-token-path /path/to/work_token.json
 
     # Show help
     %s --help
@@ -168,16 +141,9 @@ func main() {
 	// Parse command-line flags
 	helpFlag := flag.Bool("help", false, "Show help message")
 	helpFlagShort := flag.Bool("h", false, "Show help message (shorthand)")
-	configFile := flag.String("config", "", "Path to JSON config file (optional)")
-	workTokenPath := flag.String("work-token-path", "", "Path to store the work account OAuth token")
-	personalTokenPath := flag.String("personal-token-path", "", "Path to store the personal account OAuth token")
-	syncCalendarName := flag.String("sync-calendar-name", "", "Name of the calendar to create/use (default: \"Work Sync\")")
-	syncCalendarColorID := flag.String("sync-calendar-color-id", "", "Color ID for the sync calendar (default: \"7\" for Grape)")
+	configFile := flag.String("config", "", "Path to JSON config file (required)")
+	workTokenPath := flag.String("work-token-path", "", "Path to store the work account OAuth token (overrides config file and WORK_TOKEN_PATH env var)")
 	googleCredentialsPath := flag.String("google-credentials-path", "", "Path to Google OAuth credentials JSON file (overrides config file and GOOGLE_CREDENTIALS_PATH env var)")
-	destinationType := flag.String("destination-type", "", "Destination calendar type: 'google' or 'apple' (default: 'google')")
-	appleCalDAVServerURL := flag.String("apple-caldav-server-url", "", "Apple CalDAV server URL (e.g., 'https://caldav.icloud.com')")
-	appleCalDAVUsername := flag.String("apple-caldav-username", "", "Apple CalDAV username (iCloud email)")
-	appleCalDAVPassword := flag.String("apple-caldav-password", "", "Apple CalDAV password (app-specific password)")
 	flag.Parse()
 
 	// Show help if requested
@@ -192,7 +158,10 @@ func main() {
 	ctx := context.Background()
 
 	// Load configuration (precedence: flags > env vars > config file > defaults)
-	cfg, err := config.LoadConfig(*configFile, *workTokenPath, *personalTokenPath, *syncCalendarName, *syncCalendarColorID, *googleCredentialsPath, *destinationType, *appleCalDAVServerURL, *appleCalDAVUsername, *appleCalDAVPassword)
+	if *configFile == "" {
+		log.Fatalf("--config FILE is required. Use --help for more information.")
+	}
+	cfg, err := config.LoadConfig(*configFile, *workTokenPath, *googleCredentialsPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}

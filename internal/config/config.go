@@ -57,20 +57,9 @@ type Destination struct {
 
 // Config holds the configuration for the calendar sync tool.
 type Config struct {
-	WorkTokenPath         string `json:"work_token_path,omitempty"`
-	PersonalTokenPath     string `json:"personal_token_path,omitempty"` // Deprecated: use destinations[].token_path
-	SyncCalendarName      string `json:"sync_calendar_name,omitempty"`   // Deprecated: use destinations[].calendar_name
-	SyncCalendarColorID   string `json:"sync_calendar_color_id,omitempty"` // Deprecated: use destinations[].calendar_color_id
-	GoogleCredentialsPath string `json:"google_credentials_path,omitempty"`
-
-	// Apple Calendar destination configuration (deprecated: use destinations[])
-	DestinationType      string `json:"destination_type,omitempty"`        // "google" or "apple"
-	AppleCalDAVServerURL string `json:"apple_caldav_server_url,omitempty"` // e.g., "https://caldav.icloud.com"
-	AppleCalDAVUsername  string `json:"apple_caldav_username,omitempty"`   // iCloud email
-	AppleCalDAVPassword  string `json:"apple_caldav_password,omitempty"`   // App-specific password
-
-	// Multiple destinations support
-	Destinations []Destination `json:"destinations,omitempty"` // Array of destination configurations
+	WorkTokenPath         string        `json:"work_token_path,omitempty"`
+	GoogleCredentialsPath string        `json:"google_credentials_path,omitempty"`
+	Destinations          []Destination `json:"destinations"` // Array of destination configurations (required)
 
 	// Sync window configuration
 	SyncWindowWeeks     int `json:"sync_window_weeks,omitempty"`      // Number of weeks to sync forward from start of current week (default: 2)
@@ -98,7 +87,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 // 3. Config file
 // 4. Defaults
 // Returns an error if any required value is missing.
-func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syncCalendarNameFlag, syncCalendarColorIDFlag, googleCredentialsPathFlag, destinationTypeFlag, appleCalDAVServerURLFlag, appleCalDAVUsernameFlag, appleCalDAVPasswordFlag string) (*Config, error) {
+func LoadConfig(configFile string, workTokenPathFlag, googleCredentialsPathFlag string) (*Config, error) {
 	var config Config
 
 	// Step 1: Load from config file if provided
@@ -114,30 +103,9 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 	if workTokenPath := os.Getenv("WORK_TOKEN_PATH"); workTokenPath != "" {
 		config.WorkTokenPath = workTokenPath
 	}
-	if personalTokenPath := os.Getenv("PERSONAL_TOKEN_PATH"); personalTokenPath != "" {
-		config.PersonalTokenPath = personalTokenPath
-	}
-	if syncCalendarName := os.Getenv("SYNC_CALENDAR_NAME"); syncCalendarName != "" {
-		config.SyncCalendarName = syncCalendarName
-	}
-	if syncCalendarColorID := os.Getenv("SYNC_CALENDAR_COLOR_ID"); syncCalendarColorID != "" {
-		config.SyncCalendarColorID = syncCalendarColorID
-	}
 	// Credentials path can be overridden by environment variable
 	if googleCredentialsPath := os.Getenv("GOOGLE_CREDENTIALS_PATH"); googleCredentialsPath != "" {
 		config.GoogleCredentialsPath = googleCredentialsPath
-	}
-	if destinationType := os.Getenv("DESTINATION_TYPE"); destinationType != "" {
-		config.DestinationType = destinationType
-	}
-	if appleCalDAVServerURL := os.Getenv("APPLE_CALDAV_SERVER_URL"); appleCalDAVServerURL != "" {
-		config.AppleCalDAVServerURL = appleCalDAVServerURL
-	}
-	if appleCalDAVUsername := os.Getenv("APPLE_CALDAV_USERNAME"); appleCalDAVUsername != "" {
-		config.AppleCalDAVUsername = appleCalDAVUsername
-	}
-	if appleCalDAVPassword := os.Getenv("APPLE_CALDAV_PASSWORD"); appleCalDAVPassword != "" {
-		config.AppleCalDAVPassword = appleCalDAVPassword
 	}
 	// Sync window weeks from environment variable
 	if syncWindowWeeks := os.Getenv("SYNC_WINDOW_WEEKS"); syncWindowWeeks != "" {
@@ -158,29 +126,8 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 	if workTokenPathFlag != "" {
 		config.WorkTokenPath = workTokenPathFlag
 	}
-	if personalTokenPathFlag != "" {
-		config.PersonalTokenPath = personalTokenPathFlag
-	}
-	if syncCalendarNameFlag != "" {
-		config.SyncCalendarName = syncCalendarNameFlag
-	}
-	if syncCalendarColorIDFlag != "" {
-		config.SyncCalendarColorID = syncCalendarColorIDFlag
-	}
 	if googleCredentialsPathFlag != "" {
 		config.GoogleCredentialsPath = googleCredentialsPathFlag
-	}
-	if destinationTypeFlag != "" {
-		config.DestinationType = destinationTypeFlag
-	}
-	if appleCalDAVServerURLFlag != "" {
-		config.AppleCalDAVServerURL = appleCalDAVServerURLFlag
-	}
-	if appleCalDAVUsernameFlag != "" {
-		config.AppleCalDAVUsername = appleCalDAVUsernameFlag
-	}
-	if appleCalDAVPasswordFlag != "" {
-		config.AppleCalDAVPassword = appleCalDAVPasswordFlag
 	}
 
 	// Step 4: Apply defaults and validate required fields
@@ -192,44 +139,9 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 		return nil, fmt.Errorf("google_credentials_path must be provided via --google-credentials-path flag, GOOGLE_CREDENTIALS_PATH environment variable, or config file")
 	}
 
-	// Normalize destinations: convert old single-destination format to new array format
+	// Validate that destinations array is provided
 	if len(config.Destinations) == 0 {
-		// Backward compatibility: create a destination from old format
-		destType := config.DestinationType
-		if destType == "" {
-			destType = "google" // Default to Google
-		}
-
-		dest := Destination{
-			Name:            "Default",
-			Type:            destType,
-			CalendarName:    config.SyncCalendarName,
-			CalendarColorID: config.SyncCalendarColorID,
-		}
-
-		if destType == "google" {
-			if config.PersonalTokenPath == "" {
-				return nil, fmt.Errorf("personal_token_path must be provided via --personal-token-path flag, PERSONAL_TOKEN_PATH environment variable, or config file (required for Google Calendar destination)")
-			}
-			dest.TokenPath = config.PersonalTokenPath
-		} else if destType == "apple" {
-			if config.AppleCalDAVServerURL == "" {
-				return nil, fmt.Errorf("apple_caldav_server_url must be provided for Apple Calendar destination")
-			}
-			if config.AppleCalDAVUsername == "" {
-				return nil, fmt.Errorf("apple_caldav_username must be provided for Apple Calendar destination")
-			}
-			if config.AppleCalDAVPassword == "" {
-				return nil, fmt.Errorf("apple_caldav_password must be provided for Apple Calendar destination")
-			}
-			dest.ServerURL = config.AppleCalDAVServerURL
-			dest.Username = config.AppleCalDAVUsername
-			dest.Password = config.AppleCalDAVPassword
-		} else {
-			return nil, fmt.Errorf("destination_type must be 'google' or 'apple', got '%s'", destType)
-		}
-
-		config.Destinations = []Destination{dest}
+		return nil, fmt.Errorf("destinations array must be provided in config file. At least one destination is required")
 	}
 
 	// Validate and set defaults for each destination
