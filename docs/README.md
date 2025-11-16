@@ -207,16 +207,6 @@ Only a few settings can be overridden via command-line flags:
 ```
 
 **Note**: Destination configuration must be specified in the config file. Command-line flags cannot override destination settings.
-
-# For Apple Calendar destination
-./calsync \
-  --work-token-path /path/to/work_token.json \
-  --sync-calendar-name "Work Sync" \
-  --google-credentials-path /path/to/credentials.json \
-  --destination-type apple \
-  --apple-caldav-server-url "https://caldav.icloud.com" \
-  --apple-caldav-username "your-email@icloud.com" \
-  --apple-caldav-password "app-specific-password"
 ```
 
 ### Configuration Precedence
@@ -337,8 +327,6 @@ Each destination in the `destinations` array can have the following fields:
 
 ### Optional Settings
 
-- **`sync_window_weeks`**: Number of weeks to sync forward from start of current week (default: `2`)
-- **`sync_window_weeks_past`**: Number of weeks to sync backward from start of current week (default: `0`)
 - **`sync_window_weeks`**: Number of weeks to sync forward from start of current week (default: `2`)
 - **`sync_window_weeks_past`**: Number of weeks to sync backward from start of current week (default: `0`)
 
