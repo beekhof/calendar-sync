@@ -111,10 +111,17 @@ func (c *Client) FindEventsByWorkID(calendarID, workEventID string) ([]*calendar
 
 // InsertEvent inserts a new event into a calendar.
 // Important: Sets sendUpdates="none" to prevent notifications.
+// If the event contains conferenceData, sets conferenceDataVersion=1 to preserve Google Meet links.
 func (c *Client) InsertEvent(calendarID string, event *calendar.Event) error {
-	_, err := c.service.Events.Insert(calendarID, event).
-		SendUpdates("none"). // Disable notifications
-		Do()
+	call := c.service.Events.Insert(calendarID, event).
+		SendUpdates("none") // Disable notifications
+
+	// If event has conference data, set conferenceDataVersion=1 to preserve it
+	if event.ConferenceData != nil {
+		call = call.ConferenceDataVersion(1)
+	}
+
+	_, err := call.Do()
 	if err != nil {
 		return fmt.Errorf("failed to insert event: %w", err)
 	}
@@ -123,10 +130,17 @@ func (c *Client) InsertEvent(calendarID string, event *calendar.Event) error {
 }
 
 // UpdateEvent updates an existing event in a calendar.
+// If the event contains conferenceData, sets conferenceDataVersion=1 to preserve Google Meet links.
 func (c *Client) UpdateEvent(calendarID, eventID string, event *calendar.Event) error {
-	_, err := c.service.Events.Update(calendarID, eventID, event).
-		SendUpdates("none"). // Disable notifications
-		Do()
+	call := c.service.Events.Update(calendarID, eventID, event).
+		SendUpdates("none") // Disable notifications
+
+	// If event has conference data, set conferenceDataVersion=1 to preserve it
+	if event.ConferenceData != nil {
+		call = call.ConferenceDataVersion(1)
+	}
+
+	_, err := call.Do()
 	if err != nil {
 		return fmt.Errorf("failed to update event: %w", err)
 	}
