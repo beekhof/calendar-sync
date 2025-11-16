@@ -82,13 +82,17 @@ func TestLoadConfig_Defaults(t *testing.T) {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
 
-	// Should use defaults for calendar name and color ID
-	if config.SyncCalendarName != "Work Sync" {
-		t.Errorf("Expected SyncCalendarName to default to 'Work Sync', got '%s'", config.SyncCalendarName)
+	// Should use defaults for calendar name and color ID in the destination
+	if len(config.Destinations) != 1 {
+		t.Fatalf("Expected 1 destination, got %d", len(config.Destinations))
+	}
+	dest := config.Destinations[0]
+	if dest.CalendarName != "Work Sync" {
+		t.Errorf("Expected destination CalendarName to default to 'Work Sync', got '%s'", dest.CalendarName)
 	}
 
-	if config.SyncCalendarColorID != "7" {
-		t.Errorf("Expected SyncCalendarColorID to default to '7', got '%s'", config.SyncCalendarColorID)
+	if dest.CalendarColorID != "7" {
+		t.Errorf("Expected destination CalendarColorID to default to '7', got '%s'", dest.CalendarColorID)
 	}
 }
 
