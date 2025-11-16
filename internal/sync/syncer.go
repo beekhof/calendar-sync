@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	calclient "calendar-sync/internal/calendar"
-	"calendar-sync/internal/config"
+	calclient "github.com/beekhof/calendar-sync/internal/calendar"
+	"github.com/beekhof/calendar-sync/internal/config"
 
 	"google.golang.org/api/calendar/v3"
 )

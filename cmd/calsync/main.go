@@ -7,10 +7,10 @@ import (
 	"log"
 	"os"
 
-	"calendar-sync/internal/auth"
-	calclient "calendar-sync/internal/calendar"
-	"calendar-sync/internal/config"
-	"calendar-sync/internal/sync"
+	"github.com/beekhof/calendar-sync/internal/auth"
+	calclient "github.com/beekhof/calendar-sync/internal/calendar"
+	"github.com/beekhof/calendar-sync/internal/config"
+	"github.com/beekhof/calendar-sync/internal/sync"
 
 	"golang.org/x/oauth2"
 )

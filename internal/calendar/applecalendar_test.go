@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"calendar-sync/internal/config"
+	"github.com/beekhof/calendar-sync/internal/config"
 
 	"google.golang.org/api/calendar/v3"
 )
