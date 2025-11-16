@@ -6,6 +6,8 @@ cmd/calsync/calsync
 credentials.json
 token.json
 config.json
+apple.json
+google.json
 
 # Test coverage files
 coverage.out

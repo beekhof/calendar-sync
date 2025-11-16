@@ -54,6 +54,9 @@ type Config struct {
 	AppleCalDAVServerURL string `json:"apple_caldav_server_url,omitempty"` // e.g., "https://caldav.icloud.com"
 	AppleCalDAVUsername  string `json:"apple_caldav_username,omitempty"`   // iCloud email
 	AppleCalDAVPassword  string `json:"apple_caldav_password,omitempty"`   // App-specific password
+
+	// Sync window configuration
+	SyncWindowWeeks int `json:"sync_window_weeks,omitempty"` // Number of weeks to sync from start of current week (default: 2)
 }
 
 // LoadConfigFromFile loads configuration from a JSON file.
@@ -117,6 +120,13 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 	}
 	if appleCalDAVPassword := os.Getenv("APPLE_CALDAV_PASSWORD"); appleCalDAVPassword != "" {
 		config.AppleCalDAVPassword = appleCalDAVPassword
+	}
+	// Sync window weeks from environment variable
+	if syncWindowWeeks := os.Getenv("SYNC_WINDOW_WEEKS"); syncWindowWeeks != "" {
+		var err error
+		if config.SyncWindowWeeks, err = parseInt(syncWindowWeeks); err != nil {
+			return nil, fmt.Errorf("invalid SYNC_WINDOW_WEEKS value: %w", err)
+		}
 	}
 
 	// Step 3: Override with command-line flags (highest priority)
@@ -191,5 +201,17 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 		config.SyncCalendarColorID = "7"
 	}
 
+	// Default sync window to 2 weeks (current week + next week)
+	if config.SyncWindowWeeks == 0 {
+		config.SyncWindowWeeks = 2
+	}
+
 	return &config, nil
+}
+
+// parseInt parses a string to an integer.
+func parseInt(s string) (int, error) {
+	var result int
+	_, err := fmt.Sscanf(s, "%d", &result)
+	return result, err
 }
