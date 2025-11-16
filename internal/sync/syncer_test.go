@@ -322,7 +322,7 @@ func TestSync_NewEvent(t *testing.T) {
 		CalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, cfg, dest)
+	syncer := NewSyncer(workClient, personalClient, cfg, dest, false)
 
 	// Add a new event to work calendar
 	workEvent := &calendar.Event{
@@ -370,7 +370,7 @@ func TestSync_DeletedEvent(t *testing.T) {
 		CalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, cfg, dest)
+	syncer := NewSyncer(workClient, personalClient, cfg, dest, false)
 
 	// Add an event to personal calendar that no longer exists in work
 	destCalendarID := "cal_Work Sync"
@@ -424,7 +424,7 @@ func TestSync_UnchangedEvent(t *testing.T) {
 		CalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, cfg, dest)
+	syncer := NewSyncer(workClient, personalClient, cfg, dest, false)
 
 	// Add the same event to both calendars
 	workEvent := &calendar.Event{
@@ -483,7 +483,7 @@ func TestSync_ChangedEvent(t *testing.T) {
 		CalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, cfg, dest)
+	syncer := NewSyncer(workClient, personalClient, cfg, dest, false)
 
 	// Work event has been updated
 	workEvent := &calendar.Event{

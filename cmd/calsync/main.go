@@ -155,10 +155,14 @@ func main() {
 	// Parse command-line flags
 	helpFlag := flag.Bool("help", false, "Show help message")
 	helpFlagShort := flag.Bool("h", false, "Show help message (shorthand)")
+	verboseFlag := flag.Bool("verbose", false, "Enable verbose output (show DEBUG logs)")
+	verboseFlagShort := flag.Bool("v", false, "Enable verbose output (shorthand)")
 	configFile := flag.String("config", "", "Path to JSON config file (required)")
 	workTokenPath := flag.String("work-token-path", "", "Path to store the work account OAuth token (overrides config file and WORK_TOKEN_PATH env var)")
 	googleCredentialsPath := flag.String("google-credentials-path", "", "Path to Google OAuth credentials JSON file (overrides config file and GOOGLE_CREDENTIALS_PATH env var)")
 	flag.Parse()
+	
+	verbose := *verboseFlag || *verboseFlagShort
 
 	// Show help if requested
 	if *helpFlag || *helpFlagShort {
@@ -250,7 +254,7 @@ func main() {
 		}
 
 		// Create the Syncer for this destination
-		syncer := sync.NewSyncer(workClient, personalClient, cfg, &dest)
+		syncer := sync.NewSyncer(workClient, personalClient, cfg, &dest, verbose)
 
 		// Run the sync
 		if err := syncer.Sync(ctx); err != nil {

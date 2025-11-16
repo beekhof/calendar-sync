@@ -22,15 +22,24 @@ type Syncer struct {
 	personalClient calclient.CalendarClient
 	config         *config.Config
 	destination    *config.Destination // Destination-specific config (calendar name, color, etc.)
+	verbose        bool                // Enable verbose DEBUG logging
 }
 
 // NewSyncer creates a new Syncer instance.
-func NewSyncer(workClient, personalClient calclient.CalendarClient, cfg *config.Config, dest *config.Destination) *Syncer {
+func NewSyncer(workClient, personalClient calclient.CalendarClient, cfg *config.Config, dest *config.Destination, verbose bool) *Syncer {
 	return &Syncer{
 		workClient:     workClient,
 		personalClient: personalClient,
 		config:         cfg,
 		destination:    dest,
+		verbose:        verbose,
+	}
+}
+
+// debugLog logs a message only if verbose mode is enabled.
+func (s *Syncer) debugLog(format string, v ...interface{}) {
+	if s.verbose {
+		log.Printf("DEBUG: "+format, v...)
 	}
 }
 
@@ -226,21 +235,28 @@ func (s *Syncer) prepareSyncEvent(sourceEvent *calendar.Event) *calendar.Event {
 }
 
 // eventsEqual checks if two events have the same key properties.
-func eventsEqual(event1, event2 *calendar.Event) bool {
+// debugLog is an optional function for verbose logging (can be nil).
+func eventsEqual(event1, event2 *calendar.Event, debugLog func(string, ...interface{})) bool {
 	if event1.Summary != event2.Summary {
-		log.Printf("DEBUG: summary mismatch: %v != %v", event1.Summary, event2.Summary)
+		if debugLog != nil {
+			debugLog("summary mismatch: %v != %v", event1.Summary, event2.Summary)
+		}
 		return false
 	}
 
 	if event1.Description != event2.Description {
 		// skip this check for now
 		// It causes problems with escaping characters in the description
-		//log.Printf("DEBUG: description mismatch: %v != %v", event1.Description, event2.Description)
+		//if debugLog != nil {
+		//	debugLog("description mismatch: %v != %v", event1.Description, event2.Description)
+		//}
 		//return false
 	}
 
 	if event1.Location != event2.Location {
-		log.Printf("DEBUG: location mismatch: %v != %v", event1.Location, event2.Location)
+		if debugLog != nil {
+			debugLog("location mismatch: %v != %v", event1.Location, event2.Location)
+		}
 		return false
 	}
 
@@ -254,7 +270,9 @@ func eventsEqual(event1, event2 *calendar.Event) bool {
 		start2 = event2.Start.Date
 	}
 	if start1 != start2 {
-		log.Printf("DEBUG: start time mismatch: %v != %v", start1, start2)
+		if debugLog != nil {
+			debugLog("start time mismatch: %v != %v", start1, start2)
+		}
 		return false
 	}
 
@@ -268,7 +286,9 @@ func eventsEqual(event1, event2 *calendar.Event) bool {
 		end2 = event2.End.Date
 	}
 	if end1 != end2 {
-		log.Printf("DEBUG: end time mismatch: %v != %v", end1, end2)
+		if debugLog != nil {
+			debugLog("end time mismatch: %v != %v", end1, end2)
+		}
 		return false
 	}
 
@@ -276,7 +296,9 @@ func eventsEqual(event1, event2 *calendar.Event) bool {
 	meetURL1 := getMeetURL(event1)
 	meetURL2 := getMeetURL(event2)
 	if meetURL1 != meetURL2 {
-		log.Printf("DEBUG: conference data mismatch: %v != %v", meetURL1, meetURL2)
+		if debugLog != nil {
+			debugLog("conference data mismatch: %v != %v", meetURL1, meetURL2)
+		}
 		return false
 	}
 
@@ -464,7 +486,7 @@ func (s *Syncer) Sync(ctx context.Context) error {
 		}
 
 		if len(destEventsByWorkID[workID]) > 0 {
-			log.Printf("DEBUG: found duplicate event %s (summary: %v)", destEvent.Id, destEvent.Summary)
+			s.debugLog("found duplicate event %s (summary: %v)", destEvent.Id, destEvent.Summary)
 		}
 		destEventsByWorkID[workID] = append(destEventsByWorkID[workID], destEvent)
 	}
@@ -517,11 +539,11 @@ func (s *Syncer) Sync(ctx context.Context) error {
 			} else {
 				destEvent = allDestEventsWithSameWorkID[0]
 			}
-			log.Printf("DEBUG: found matched event %s (summary: %v)", destEvent.Id, destEvent.Summary)
+			s.debugLog("found matched event %s (summary: %v)", destEvent.Id, destEvent.Summary)
 
 			// Check if the event has changed
 			preparedEvent := s.prepareSyncEvent(sourceEvent)
-			if !eventsEqual(destEvent, preparedEvent) {
+			if !eventsEqual(destEvent, preparedEvent, s.debugLog) {
 				// Event has changed, update it
 				if err := s.personalClient.UpdateEvent(destCalendarID, destEvent.Id, preparedEvent); err != nil {
 					log.Printf("Warning: failed to update event %s (summary: %v): %v", destEvent.Id, preparedEvent.Summary, err)
