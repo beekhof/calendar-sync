@@ -11,6 +11,7 @@ import (
 
 	calclient "github.com/beekhof/calendar-sync/internal/calendar"
 	"github.com/beekhof/calendar-sync/internal/config"
+	"golang.org/x/term"
 
 	"google.golang.org/api/calendar/v3"
 )
@@ -295,8 +296,21 @@ func getMeetURL(event *calendar.Event) string {
 	return ""
 }
 
+// isInteractive checks if the program is running in an interactive terminal.
+func isInteractive() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
 // promptForConfirmation prompts the user for confirmation and returns true if they confirm.
+// Only prompts if running in an interactive terminal. In non-interactive mode, returns false.
 func promptForConfirmation(message string) bool {
+	if !isInteractive() {
+		// Running headless (e.g., cron job) - don't prompt, just log and return false
+		log.Printf("WARNING: Running in non-interactive mode. Skipping confirmation prompt.")
+		log.Printf("WARNING: %s", message)
+		return false
+	}
+
 	fmt.Fprintf(os.Stderr, "\n%s\n", message)
 	fmt.Fprint(os.Stderr, "Do you want to continue? (yes/no): ")
 
