@@ -15,6 +15,12 @@ build:
 	@go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/calsync
 	@echo "Build complete: $(BINARY_NAME)"
 
+# Install the binary using go install
+install:
+	@echo "Installing $(BINARY_NAME)..."
+	@go install $(LDFLAGS) ./cmd/calsync
+	@echo "Install complete. Binary installed to $$(go env GOPATH)/bin/$(BINARY_NAME)"
+
 # Run all tests
 test:
 	@echo "Running tests..."
@@ -45,11 +51,6 @@ clean:
 	@rm -f coverage.out coverage.html
 	@echo "Clean complete"
 
-# Install the binary to GOPATH/bin
-install:
-	@echo "Installing $(BINARY_NAME)..."
-	@go install $(LDFLAGS) ./cmd/calsync
-	@echo "Install complete"
 
 # Run the tool (requires -in and -out flags)
 run:
