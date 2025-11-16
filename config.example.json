@@ -1,50 +1,72 @@
 {
-  "_comment": "Calendar Sync Tool Configuration Example - See README.md for full documentation",
+  // Calendar Sync Tool Configuration Example
+  // See README.md for full documentation
   
+  // Required: Path to store the work account OAuth token
+  // This token will be created automatically on first run via OAuth flow
   "work_token_path": "/path/to/work_token.json",
-  "_work_token_path": "Required: Path to store work account OAuth token (created automatically on first run)",
 
+  // Required: Path to Google OAuth credentials JSON file
+  // Download this from Google Cloud Console: https://console.cloud.google.com/
+  // Should contain either "installed" or "web" section with "client_id" and "client_secret"
   "google_credentials_path": "/path/to/credentials.json",
-  "_google_credentials_path": "Required: Path to Google OAuth credentials JSON from Google Cloud Console",
 
+  // Optional: Number of weeks to sync forward from start of current week (default: 2)
   "sync_window_weeks": 2,
-  "_sync_window_weeks": "Optional: Weeks to sync forward from start of current week (default: 2)",
 
+  // Optional: Number of weeks to sync backward from start of current week (default: 0)
   "sync_window_weeks_past": 0,
-  "_sync_window_weeks_past": "Optional: Weeks to sync backward from start of current week (default: 0)",
 
+  // Required: Array of destination calendars
+  // Events will be synced to all destinations listed here
   "destinations": [
     {
-      "_comment": "Google Calendar destination example",
+      // Example: Google Calendar destination
+      // Optional: Name used for logging (defaults to "Destination N")
       "name": "Personal Google Calendar",
+      
+      // Required: Destination type - "google" or "apple"
       "type": "google",
+      
+      // Required for "google": Path to store personal account OAuth token
+      // This token will be created automatically on first run via OAuth flow
       "token_path": "/path/to/personal_token.json",
+      
+      // Optional: Calendar name in the destination account (default: "Work Sync")
+      // If the calendar doesn't exist, it will be created automatically
       "calendar_name": "Work Sync",
+      
+      // Optional: Calendar color ID (default: "7" for Grape)
+      // Google Calendar color IDs: 1=lavender, 2=sage, 3=grape, 4=flamingo,
+      // 5=banana, 6=tangerine, 7=peacock, 8=graphite, 9=blueberry, 10=basil, 11=tomato
       "calendar_color_id": "7"
     },
     {
-      "_comment": "Apple Calendar / iCloud destination example",
+      // Example: Apple Calendar / iCloud destination
+      // Optional: Name used for logging (defaults to "Destination N")
       "name": "iCloud Calendar",
+      
+      // Required: Destination type - "google" or "apple"
       "type": "apple",
+      
+      // Required for "apple": CalDAV server URL
+      // For iCloud, use: "https://caldav.icloud.com"
       "server_url": "https://caldav.icloud.com",
+      
+      // Required for "apple": iCloud email address
       "username": "your-email@icloud.com",
+      
+      // Required for "apple": App-specific password
+      // Generate one at: https://appleid.apple.com/account/manage
+      // Go to "Sign-In and Security" > "App-Specific Passwords"
       "password": "xxxx-xxxx-xxxx-xxxx",
+      
+      // Optional: Calendar name in the destination account (default: "Work Sync")
       "calendar_name": "Work Sync",
+      
+      // Optional: Calendar color ID (default: "7")
+      // Apple Calendar uses a different color system than Google
       "calendar_color_id": "1"
     }
-  ],
-  
-  "_notes": {
-    "destinations": "Required: Array of destination calendars. Events sync to all destinations listed.",
-    "destination_fields": {
-      "name": "Optional: Used for logging (defaults to 'Destination N')",
-      "type": "Required: 'google' or 'apple'",
-      "token_path": "Required for 'google': Path to personal account OAuth token",
-      "server_url": "Required for 'apple': CalDAV server URL (use 'https://caldav.icloud.com' for iCloud)",
-      "username": "Required for 'apple': iCloud email address",
-      "password": "Required for 'apple': App-specific password from https://appleid.apple.com/account/manage",
-      "calendar_name": "Optional: Calendar name in destination (default: 'Work Sync')",
-      "calendar_color_id": "Optional: Google colors 1-11 (default: '7'), Apple uses different system (default: '7')"
-    }
-  }
+  ]
 }
