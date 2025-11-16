@@ -2,6 +2,10 @@
   // Calendar Sync Tool Configuration Example
   // See README.md for full documentation
   
+  // ⚠️  WARNING: This tool will DELETE events in the destination calendar that are not
+  // present in the work calendar. Manually created events will be removed. Only use
+  // with a dedicated calendar that you don't manually edit!
+  
   // Required: Path to store the work account OAuth token
   // This token will be created automatically on first run via OAuth flow
   "work_token_path": "/path/to/work_token.json",

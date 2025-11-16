@@ -6,6 +6,17 @@ A one-way synchronization tool that syncs events from a work Google Calendar to 
 
 The Calendar Sync Tool creates a read-only "Work Sync" calendar in your personal calendar account (Google Calendar or Apple Calendar/iCloud), populated with filtered events from your work Google Calendar. The work calendar is the "source of truth" - any manual changes made to the synced calendar will be overwritten on the next sync.
 
+### ⚠️ Important Warning
+
+**Before your first sync, please be aware:**
+
+- **The work calendar is the source of truth** - the tool will DELETE any events in the destination calendar that are not present in the work calendar
+- **Manually created events will be deleted** - any events you manually add to the destination calendar will be removed on the next sync
+- **Use a dedicated calendar** - only use this tool with a calendar that you don't manually edit. The tool will automatically create a "Work Sync" calendar for you, or you can specify a different name in the config
+- **Stale events are removed** - events that were previously synced but no longer exist in the work calendar will be deleted
+
+**This tool is designed for one-way synchronization only. Do not manually edit the destination calendar.**
+
 ### Key Features
 
 - **One-way sync**: Work calendar → Personal calendar (Google or Apple)

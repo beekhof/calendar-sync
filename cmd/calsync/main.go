@@ -104,6 +104,13 @@ DESCRIPTION:
     separate "Work Sync" calendar in each destination account and populates it with
     filtered events from your work calendar.
 
+    ⚠️  IMPORTANT WARNING: The work calendar is the source of truth. This tool will:
+    - DELETE any manually created events in the destination calendar
+    - DELETE any events that were previously synced but no longer exist in the work calendar
+    - OVERWRITE any manual changes made to synced events
+    
+    Only use this tool with a dedicated calendar that you don't manually edit!
+
     You can sync to multiple destinations in a single run by specifying them in the
     config file using the "destinations" array. Each destination can have its own
     calendar name and color.
