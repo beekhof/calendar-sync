@@ -74,6 +74,19 @@ lint:
 		golangci-lint run; \
 	else \
 		echo "golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		exit 1; \
+	fi
+
+# Run go vet (built-in linter)
+vet:
+	@echo "Running go vet..."
+	@go vet ./...
+
+# Run all linters (vet + golangci-lint if available)
+lint-all: vet
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		echo "Running golangci-lint..."; \
+		golangci-lint run; \
 	fi
 
 # Download dependencies
