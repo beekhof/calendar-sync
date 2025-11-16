@@ -124,79 +124,89 @@ For Apple Calendar destination, you need:
 
 You can configure the tool using one of three methods (or a combination):
 
-#### Option A: JSON Config File (Recommended)
+#### Option A: JSON Config File (Required)
 
-Create a `config.json` file:
+Create a `config.json` file. The `destinations` array is required and must contain at least one destination:
 
 ```json
 {
   "work_token_path": "/path/to/work_token.json",
-  "personal_token_path": "/path/to/personal_token.json",
-  "sync_calendar_name": "Work Sync",
-  "sync_calendar_color_id": "7",
   "google_credentials_path": "/path/to/credentials.json",
-  "destination_type": "google",
   "sync_window_weeks": 2,
-  "sync_window_weeks_past": 0
+  "sync_window_weeks_past": 0,
+  "destinations": [
+    {
+      "name": "Personal Google",
+      "type": "google",
+      "token_path": "/path/to/personal_token.json",
+      "calendar_name": "Work Sync",
+      "calendar_color_id": "7"
+    }
+  ]
 }
 ```
 
-**Note**: The `google_credentials_path` should point to the JSON file downloaded from Google Cloud Console. The file should contain either an "installed" or "web" section with "client_id" and "client_secret" fields.
-
-**Example for Apple Calendar destination:**
+**Example with multiple destinations:**
 ```json
 {
   "work_token_path": "/path/to/work_token.json",
-  "sync_calendar_name": "Work Sync",
-  "sync_calendar_color_id": "7",
   "google_credentials_path": "/path/to/credentials.json",
-  "destination_type": "apple",
-  "apple_caldav_server_url": "https://caldav.icloud.com",
-  "apple_caldav_username": "your-email@icloud.com",
-  "apple_caldav_password": "app-specific-password",
   "sync_window_weeks": 2,
-  "sync_window_weeks_past": 0
+  "sync_window_weeks_past": 0,
+  "destinations": [
+    {
+      "name": "Personal Google",
+      "type": "google",
+      "token_path": "/path/to/personal_token.json",
+      "calendar_name": "Work Sync",
+      "calendar_color_id": "7"
+    },
+    {
+      "name": "iCloud",
+      "type": "apple",
+      "server_url": "https://caldav.icloud.com",
+      "username": "your-email@icloud.com",
+      "password": "app-specific-password",
+      "calendar_name": "Work",
+      "calendar_color_id": "1"
+    }
+  ]
 }
 ```
 
-**Note**: For Apple Calendar, you need to generate an app-specific password from iCloud:
-1. Go to https://appleid.apple.com/account/manage
-2. Sign in with your Apple ID
-3. Under "Security" → "App-Specific Passwords", click "Generate Password"
-4. Use this password for `apple_caldav_password`
+**Notes**:
+- The `google_credentials_path` should point to the JSON file downloaded from Google Cloud Console. The file should contain either an "installed" or "web" section with "client_id" and "client_secret" fields.
+- For Apple Calendar destinations, you need to generate an app-specific password from iCloud:
+  1. Go to https://appleid.apple.com/account/manage
+  2. Sign in with your Apple ID
+  3. Under "Security" → "App-Specific Passwords", click "Generate Password"
+  4. Use this password for the `password` field in the Apple destination
 
 #### Option B: Environment Variables
 
-```bash
-# For Google Calendar destination
-export WORK_TOKEN_PATH="/path/to/work_token.json"
-export PERSONAL_TOKEN_PATH="/path/to/personal_token.json"
-export SYNC_CALENDAR_NAME="Work Sync"
-export SYNC_CALENDAR_COLOR_ID="7"
-export GOOGLE_CREDENTIALS_PATH="/path/to/credentials.json"
-export DESTINATION_TYPE="google"
+Some settings can be provided via environment variables, but destination configuration must be in the config file:
 
-# For Apple Calendar destination
+```bash
 export WORK_TOKEN_PATH="/path/to/work_token.json"
-export SYNC_CALENDAR_NAME="Work Sync"
 export GOOGLE_CREDENTIALS_PATH="/path/to/credentials.json"
-export DESTINATION_TYPE="apple"
-export APPLE_CALDAV_SERVER_URL="https://caldav.icloud.com"
-export APPLE_CALDAV_USERNAME="your-email@icloud.com"
-export APPLE_CALDAV_PASSWORD="app-specific-password"
+export SYNC_WINDOW_WEEKS=2
+export SYNC_WINDOW_WEEKS_PAST=0
 ```
+
+**Note**: Destination configuration (type, token_path, server_url, etc.) must be specified in the config file's `destinations` array. Environment variables cannot override destination settings.
 
 #### Option C: Command-Line Flags
 
+Only a few settings can be overridden via command-line flags:
+
 ```bash
-# For Google Calendar destination
 ./calsync \
+  --config /path/to/config.json \
   --work-token-path /path/to/work_token.json \
-  --personal-token-path /path/to/personal_token.json \
-  --sync-calendar-name "Work Sync" \
-  --sync-calendar-color-id "7" \
-  --google-credentials-path /path/to/credentials.json \
-  --destination-type google
+  --google-credentials-path /path/to/credentials.json
+```
+
+**Note**: Destination configuration must be specified in the config file. Command-line flags cannot override destination settings.
 
 # For Apple Calendar destination
 ./calsync \
@@ -305,19 +315,30 @@ crontab -e
 
 - **`work_token_path`**: Path where the work account OAuth token will be stored (always required)
 - **`google_credentials_path`**: Path to the Google OAuth credentials JSON file (downloaded from Google Cloud Console) (always required)
-- **`personal_token_path`**: Path where the personal account OAuth token will be stored (required for Google Calendar destination only)
-- **`destination_type`**: Destination calendar type - `"google"` or `"apple"` (default: `"google"`)
+- **`destinations`**: Array of destination configurations (required, must contain at least one destination)
 
-### Apple Calendar Settings (required when `destination_type` is `"apple"`)
+### Destination Configuration
 
-- **`apple_caldav_server_url`**: CalDAV server URL (e.g., `"https://caldav.icloud.com"` for iCloud)
-- **`apple_caldav_username`**: Your iCloud email address
-- **`apple_caldav_password`**: App-specific password from iCloud (generate at https://appleid.apple.com/account/manage)
+Each destination in the `destinations` array can have the following fields:
+
+**Common fields (all destinations)**:
+- **`name`**: Optional name for logging (defaults to "Destination N")
+- **`type`**: Required - `"google"` or `"apple"`
+- **`calendar_name`**: Optional - Name of the calendar to create/use (default: `"Work Sync"`)
+- **`calendar_color_id`**: Optional - Color ID for the calendar (default: `"7"`)
+
+**Google Calendar destination fields**:
+- **`token_path`**: Required - Path where the personal account OAuth token will be stored
+
+**Apple Calendar destination fields**:
+- **`server_url`**: Required - CalDAV server URL (e.g., `"https://caldav.icloud.com"` for iCloud)
+- **`username`**: Required - Your iCloud email address
+- **`password`**: Required - App-specific password from iCloud (generate at https://appleid.apple.com/account/manage)
 
 ### Optional Settings
 
-- **`sync_calendar_name`**: Name of the calendar to create/use (default: `"Work Sync"`)
-- **`sync_calendar_color_id`**: Color ID for the calendar (default: `"7"` for Grape)
+- **`sync_window_weeks`**: Number of weeks to sync forward from start of current week (default: `2`)
+- **`sync_window_weeks_past`**: Number of weeks to sync backward from start of current week (default: `0`)
 - **`sync_window_weeks`**: Number of weeks to sync forward from start of current week (default: `2`)
 - **`sync_window_weeks_past`**: Number of weeks to sync backward from start of current week (default: `0`)
 
