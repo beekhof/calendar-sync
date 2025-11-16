@@ -2,7 +2,26 @@
 
 `launchd` is the recommended way to run scheduled tasks on macOS. It's more reliable than cron and better integrated with the macOS system.
 
-## Quick Setup
+## Automated Setup (Recommended)
+
+Use the provided setup script for the easiest installation:
+
+```bash
+# Run the setup script
+./setup-launchd.sh
+```
+
+The script will:
+- ✅ Check if `calsync` is installed
+- ✅ Copy your `config.json` to `~/.config/calsync/config.json`
+- ✅ Create log directories
+- ✅ Generate and install the launchd plist with correct paths
+- ✅ Load the service
+- ✅ Run a test sync to verify everything works
+
+## Manual Setup
+
+If you prefer to set up manually:
 
 1. **Edit the plist file** (`com.beekhof.calsync.plist`) to match your paths:
    - Update the path to `calsync` binary (or use the full path where you installed it)

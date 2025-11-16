@@ -266,7 +266,14 @@ The tool automatically detects when running in non-interactive mode (e.g., from 
 
 `launchd` is the native macOS scheduler and is recommended over cron. See [SETUP_LAUNCHD.md](SETUP_LAUNCHD.md) for detailed instructions.
 
-Quick setup:
+**Easiest setup** - use the automated script:
+```bash
+./setup-launchd.sh
+```
+
+The script will handle everything automatically, including copying your config to the standard location (`~/.config/calsync/config.json`).
+
+**Manual setup**:
 ```bash
 # 1. Edit com.beekhof.calsync.plist to match your paths
 # 2. Install the service
