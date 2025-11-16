@@ -1,8 +1,11 @@
 package sync
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -292,6 +295,20 @@ func getMeetURL(event *calendar.Event) string {
 	return ""
 }
 
+// promptForConfirmation prompts the user for confirmation and returns true if they confirm.
+func promptForConfirmation(message string) bool {
+	fmt.Fprintf(os.Stderr, "\n%s\n", message)
+	fmt.Fprint(os.Stderr, "Do you want to continue? (yes/no): ")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	if !scanner.Scan() {
+		return false
+	}
+
+	response := strings.TrimSpace(strings.ToLower(scanner.Text()))
+	return response == "yes" || response == "y"
+}
+
 // Sync performs the main synchronization logic.
 func (s *Syncer) Sync(ctx context.Context) error {
 	destName := s.destination.Name
@@ -301,6 +318,30 @@ func (s *Syncer) Sync(ctx context.Context) error {
 	destCalendarID, err := s.personalClient.FindOrCreateCalendarByName(s.destination.CalendarName, s.destination.CalendarColorID)
 	if err != nil {
 		return err
+	}
+
+	// Check if calendar has existing events and prompt for confirmation
+	// Use a wide time range to check for any events
+	checkNow := time.Now()
+	wideTimeMin := checkNow.AddDate(-1, 0, 0) // 1 year ago
+	wideTimeMax := checkNow.AddDate(1, 0, 0)  // 1 year from now
+	existingEvents, err := s.personalClient.GetEvents(destCalendarID, wideTimeMin, wideTimeMax)
+	if err != nil {
+		// If we can't check for events, log a warning but continue
+		log.Printf("[%s] Warning: Could not check for existing events: %v", destName, err)
+	} else if len(existingEvents) > 0 {
+		// Calendar has events - prompt for confirmation
+		message := fmt.Sprintf(
+			"\n⚠️  WARNING: The calendar '%s' already contains %d event(s).\n"+
+				"This tool will DELETE any events that are not present in your work calendar,\n"+
+				"including manually created events.\n\n"+
+				"Are you sure you want to proceed?",
+			s.destination.CalendarName, len(existingEvents))
+		
+		if !promptForConfirmation(message) {
+			return fmt.Errorf("sync cancelled by user")
+		}
+		log.Printf("[%s] User confirmed - proceeding with sync", destName)
 	}
 
 	// Calculate time window: from past weeks to future weeks from start of current week
@@ -346,15 +387,15 @@ func (s *Syncer) Sync(ctx context.Context) error {
 	// Get destination events from personal calendar
 	// Use a wider time range to catch duplicates that might have been created in previous runs
 	// Search 6 months before and 6 months after the sync window
-	wideTimeMin := timeMin.AddDate(0, -6, 0)
-	wideTimeMax := timeMax.AddDate(0, 6, 0)
-	destEvents, err := s.personalClient.GetEvents(destCalendarID, wideTimeMin, wideTimeMax)
+	wideTimeMinForSync := timeMin.AddDate(0, -6, 0)
+	wideTimeMaxForSync := timeMax.AddDate(0, 6, 0)
+	destEvents, err := s.personalClient.GetEvents(destCalendarID, wideTimeMinForSync, wideTimeMaxForSync)
 	if err != nil {
 		return err
 	}
 
 	log.Printf("Retrieved %d destination events (wide range: %s to %s) for duplicate detection",
-		len(destEvents), wideTimeMin.Format("2006-01-02"), wideTimeMax.Format("2006-01-02"))
+		len(destEvents), wideTimeMinForSync.Format("2006-01-02"), wideTimeMaxForSync.Format("2006-01-02"))
 
 	// Group destination events by workEventId to handle duplicates
 	// Use ALL destEvents (wide range) for duplicate detection, not just those in the sync window
