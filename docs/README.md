@@ -240,17 +240,14 @@ After the first run, the tool uses stored refresh tokens and runs automatically 
 ### Basic Usage
 
 ```bash
-# Using a config file
+# Using a config file (required)
 ./calsync --config config.json
 
-# Using environment variables
-./calsync
-
-# Using command-line flags
-./calsync --work-token-path /path/to/work.json --personal-token-path /path/to/personal.json ...
-
-# Mix config file and environment variables (override credentials path)
+# Override some settings via environment variables
 GOOGLE_CREDENTIALS_PATH="/path/to/creds.json" ./calsync --config config.json
+
+# Override some settings via command-line flags
+./calsync --config config.json --work-token-path /path/to/work_token.json
 ```
 
 ### Scheduled Execution
