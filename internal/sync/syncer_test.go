@@ -118,8 +118,10 @@ func (m *mockGoogleCalendarClient) FindEventsByWorkID(calendarID, workEventID st
 
 func TestFilterEvents_TimedOOF(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
 	syncer := &Syncer{
-		workClient: mockClient,
+		workClient:  mockClient,
+		destination: dest,
 	}
 	
 	// Create a timed OOF event using EventType (most reliable method)
@@ -145,8 +147,10 @@ func TestFilterEvents_TimedOOF(t *testing.T) {
 
 func TestFilterEvents_TimedOOF_TransparencyFallback(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
 	syncer := &Syncer{
-		workClient: mockClient,
+		workClient:  mockClient,
+		destination: dest,
 	}
 	
 	// Create a timed OOF event using Transparency (fallback method)
@@ -173,8 +177,10 @@ func TestFilterEvents_TimedOOF_TransparencyFallback(t *testing.T) {
 
 func TestFilterEvents_AllDayOOF(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
 	syncer := &Syncer{
-		workClient: mockClient,
+		workClient:  mockClient,
+		destination: dest,
 	}
 	
 	// Create an all-day OOF event
@@ -200,8 +206,10 @@ func TestFilterEvents_AllDayOOF(t *testing.T) {
 
 func TestFilterEvents_WorkLocation(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
 	syncer := &Syncer{
-		workClient: mockClient,
+		workClient:  mockClient,
+		destination: dest,
 	}
 	
 	// Create work location events (should be filtered out)
@@ -247,8 +255,10 @@ func TestFilterEvents_WorkLocation(t *testing.T) {
 
 func TestFilterEvents_OutsideWindow(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
 	syncer := &Syncer{
-		workClient: mockClient,
+		workClient:  mockClient,
+		destination: dest,
 	}
 	
 	// Create an event at 5:00 AM - 5:30 AM (entirely outside window)
@@ -273,8 +283,10 @@ func TestFilterEvents_OutsideWindow(t *testing.T) {
 
 func TestFilterEvents_PartialOverlap(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
 	syncer := &Syncer{
-		workClient: mockClient,
+		workClient:  mockClient,
+		destination: dest,
 	}
 	
 	// Create an event at 5:30 AM - 6:30 AM (partially overlaps window)
@@ -302,11 +314,15 @@ func TestSync_NewEvent(t *testing.T) {
 	personalClient := newMockGoogleCalendarClient()
 	
 	cfg := &config.Config{
-		SyncCalendarName:    "Work Sync",
-		SyncCalendarColorID: "7",
+		SyncWindowWeeks: 2,
+	}
+	dest := &config.Destination{
+		Name:            "Test",
+		CalendarName:    "Work Sync",
+		CalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, cfg)
+	syncer := NewSyncer(workClient, personalClient, cfg, dest)
 
 	// Add a new event to work calendar
 	workEvent := &calendar.Event{
@@ -346,11 +362,15 @@ func TestSync_DeletedEvent(t *testing.T) {
 	personalClient := newMockGoogleCalendarClient()
 	
 	cfg := &config.Config{
-		SyncCalendarName:    "Work Sync",
-		SyncCalendarColorID: "7",
+		SyncWindowWeeks: 2,
+	}
+	dest := &config.Destination{
+		Name:            "Test",
+		CalendarName:    "Work Sync",
+		CalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, cfg)
+	syncer := NewSyncer(workClient, personalClient, cfg, dest)
 
 	// Add an event to personal calendar that no longer exists in work
 	destCalendarID := "cal_Work Sync"
@@ -396,11 +416,15 @@ func TestSync_UnchangedEvent(t *testing.T) {
 	personalClient := newMockGoogleCalendarClient()
 	
 	cfg := &config.Config{
-		SyncCalendarName:    "Work Sync",
-		SyncCalendarColorID: "7",
+		SyncWindowWeeks: 2,
+	}
+	dest := &config.Destination{
+		Name:            "Test",
+		CalendarName:    "Work Sync",
+		CalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, cfg)
+	syncer := NewSyncer(workClient, personalClient, cfg, dest)
 
 	// Add the same event to both calendars
 	workEvent := &calendar.Event{
@@ -451,11 +475,15 @@ func TestSync_ChangedEvent(t *testing.T) {
 	personalClient := newMockGoogleCalendarClient()
 	
 	cfg := &config.Config{
-		SyncCalendarName:    "Work Sync",
-		SyncCalendarColorID: "7",
+		SyncWindowWeeks: 2,
+	}
+	dest := &config.Destination{
+		Name:            "Test",
+		CalendarName:    "Work Sync",
+		CalendarColorID: "7",
 	}
 
-	syncer := NewSyncer(workClient, personalClient, cfg)
+	syncer := NewSyncer(workClient, personalClient, cfg, dest)
 
 	// Work event has been updated
 	workEvent := &calendar.Event{

@@ -211,35 +211,60 @@ func main() {
 		log.Fatalf("Failed to create work calendar client: %v", err)
 	}
 
-	// Create the personal/destination calendar client based on destination type
-	var personalClient calclient.CalendarClient
-	if cfg.DestinationType == "apple" {
-		// Create Apple Calendar client using CalDAV
-		personalClient, err = calclient.NewAppleCalendarClient(ctx, cfg.AppleCalDAVServerURL, cfg.AppleCalDAVUsername, cfg.AppleCalDAVPassword)
-		if err != nil {
-			log.Fatalf("Failed to create Apple Calendar client: %v", err)
-		}
-	} else {
-		// Default to Google Calendar
-		personalTokenStore := auth.NewFileTokenStore(cfg.PersonalTokenPath)
-		personalHTTPClient, err := auth.GetAuthenticatedClient(ctx, googleOAuthConfig, personalTokenStore)
-		if err != nil {
-			log.Fatalf("Failed to authenticate personal account: %v", err)
+	// Sync to all destinations
+	var syncErrors []error
+	for _, dest := range cfg.Destinations {
+		log.Printf("Syncing to destination: %s (type: %s)", dest.Name, dest.Type)
+
+		// Create the destination calendar client based on destination type
+		var personalClient calclient.CalendarClient
+		if dest.Type == "apple" {
+			// Create Apple Calendar client using CalDAV
+			personalClient, err = calclient.NewAppleCalendarClient(ctx, dest.ServerURL, dest.Username, dest.Password)
+			if err != nil {
+				log.Printf("[%s] Failed to create Apple Calendar client: %v", dest.Name, err)
+				syncErrors = append(syncErrors, fmt.Errorf("%s: %w", dest.Name, err))
+				continue
+			}
+		} else {
+			// Google Calendar
+			personalTokenStore := auth.NewFileTokenStore(dest.TokenPath)
+			personalHTTPClient, err := auth.GetAuthenticatedClient(ctx, googleOAuthConfig, personalTokenStore)
+			if err != nil {
+				log.Printf("[%s] Failed to authenticate: %v", dest.Name, err)
+				syncErrors = append(syncErrors, fmt.Errorf("%s: %w", dest.Name, err))
+				continue
+			}
+
+			personalClient, err = calclient.NewClient(ctx, personalHTTPClient)
+			if err != nil {
+				log.Printf("[%s] Failed to create calendar client: %v", dest.Name, err)
+				syncErrors = append(syncErrors, fmt.Errorf("%s: %w", dest.Name, err))
+				continue
+			}
 		}
 
-		personalClient, err = calclient.NewClient(ctx, personalHTTPClient)
-		if err != nil {
-			log.Fatalf("Failed to create personal calendar client: %v", err)
+		// Create the Syncer for this destination
+		syncer := sync.NewSyncer(workClient, personalClient, cfg, &dest)
+
+		// Run the sync
+		if err := syncer.Sync(ctx); err != nil {
+			log.Printf("[%s] Sync failed: %v", dest.Name, err)
+			syncErrors = append(syncErrors, fmt.Errorf("%s: %w", dest.Name, err))
+			continue
 		}
+
+		log.Printf("[%s] Sync completed successfully.", dest.Name)
 	}
 
-	// Create the Syncer
-	syncer := sync.NewSyncer(workClient, personalClient, cfg)
-
-	// Run the sync
-	if err := syncer.Sync(ctx); err != nil {
-		log.Fatalf("Sync failed: %v", err)
+	// Report results
+	if len(syncErrors) > 0 {
+		log.Printf("Sync completed with %d error(s) out of %d destination(s)", len(syncErrors), len(cfg.Destinations))
+		for _, err := range syncErrors {
+			log.Printf("  - %v", err)
+		}
+		os.Exit(1)
 	}
 
-	log.Println("Sync completed successfully.")
+	log.Printf("All syncs completed successfully (%d destination(s))", len(cfg.Destinations))
 }

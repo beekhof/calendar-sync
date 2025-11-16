@@ -17,14 +17,16 @@ type Syncer struct {
 	workClient     calclient.CalendarClient
 	personalClient calclient.CalendarClient
 	config         *config.Config
+	destination    *config.Destination // Destination-specific config (calendar name, color, etc.)
 }
 
 // NewSyncer creates a new Syncer instance.
-func NewSyncer(workClient, personalClient calclient.CalendarClient, cfg *config.Config) *Syncer {
+func NewSyncer(workClient, personalClient calclient.CalendarClient, cfg *config.Config, dest *config.Destination) *Syncer {
 	return &Syncer{
 		workClient:     workClient,
 		personalClient: personalClient,
 		config:         cfg,
+		destination:    dest,
 	}
 }
 
@@ -292,10 +294,11 @@ func getMeetURL(event *calendar.Event) string {
 
 // Sync performs the main synchronization logic.
 func (s *Syncer) Sync(ctx context.Context) error {
-	log.Println("Starting sync...")
+	destName := s.destination.Name
+	log.Printf("[%s] Starting sync...", destName)
 
 	// Find or create the destination calendar
-	destCalendarID, err := s.personalClient.FindOrCreateCalendarByName(s.config.SyncCalendarName, s.config.SyncCalendarColorID)
+	destCalendarID, err := s.personalClient.FindOrCreateCalendarByName(s.destination.CalendarName, s.destination.CalendarColorID)
 	if err != nil {
 		return err
 	}
@@ -524,6 +527,6 @@ func (s *Syncer) Sync(ctx context.Context) error {
 		}
 	}
 
-	log.Println("Sync complete.")
+	log.Printf("[%s] Sync complete.", destName)
 	return nil
 }
