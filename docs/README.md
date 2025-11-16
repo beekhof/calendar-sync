@@ -23,7 +23,21 @@ The Calendar Sync Tool creates a read-only "Work Sync" calendar in your personal
 - Go 1.21 or later
 - Google OAuth 2.0 credentials (Client ID and Client Secret)
 
-### Build
+### Install using go install
+
+```bash
+# Install from a Git repository
+go install github.com/yourusername/calendar-sync/cmd/calsync@latest
+
+# Or install from a local directory
+cd /path/to/calendar-sync
+go install ./cmd/calsync
+
+# The binary will be installed to $GOPATH/bin or $GOBIN (default: ~/go/bin)
+# Make sure this directory is in your PATH
+```
+
+### Build from source
 
 ```bash
 # Clone the repository
@@ -33,7 +47,7 @@ cd calendar-sync
 # Build the binary
 make build
 # or
-go build -o calsync .
+go build -o calsync ./cmd/calsync
 ```
 
 ## Setup
