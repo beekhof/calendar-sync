@@ -207,7 +207,6 @@ Only a few settings can be overridden via command-line flags:
 ```
 
 **Note**: Destination configuration must be specified in the config file. Command-line flags cannot override destination settings.
-```
 
 ### Configuration Precedence
 
