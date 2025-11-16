@@ -26,8 +26,8 @@ The Calendar Sync Tool creates a read-only "Work Sync" calendar in your personal
 ### Install using go install
 
 ```bash
-# Install from a Git repository
-go install github.com/yourusername/calendar-sync/cmd/calsync@latest
+# Install from GitHub
+go install github.com/beekhof/calendar-sync/cmd/calsync@latest
 
 # Or install from a local directory
 cd /path/to/calendar-sync
