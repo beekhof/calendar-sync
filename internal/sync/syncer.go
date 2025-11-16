@@ -320,8 +320,9 @@ func (s *Syncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	// Check if calendar has existing events and prompt for confirmation
-	// Use a wide time range to check for any events
+	// Check if calendar has manually created events (without workEventId) and prompt for confirmation
+	// Only prompt if there are events that don't have workEventId - these will be deleted
+	// Events with workEventId are expected (previously synced) and don't need confirmation
 	checkNow := time.Now()
 	wideTimeMin := checkNow.AddDate(-1, 0, 0) // 1 year ago
 	wideTimeMax := checkNow.AddDate(1, 0, 0)  // 1 year from now
@@ -329,19 +330,32 @@ func (s *Syncer) Sync(ctx context.Context) error {
 	if err != nil {
 		// If we can't check for events, log a warning but continue
 		log.Printf("[%s] Warning: Could not check for existing events: %v", destName, err)
-	} else if len(existingEvents) > 0 {
-		// Calendar has events - prompt for confirmation
-		message := fmt.Sprintf(
-			"\n⚠️  WARNING: The calendar '%s' already contains %d event(s).\n"+
-				"This tool will DELETE any events that are not present in your work calendar,\n"+
-				"including manually created events.\n\n"+
-				"Are you sure you want to proceed?",
-			s.destination.CalendarName, len(existingEvents))
-		
-		if !promptForConfirmation(message) {
-			return fmt.Errorf("sync cancelled by user")
+	} else {
+		// Count manually created events (those without workEventId)
+		manuallyCreatedCount := 0
+		for _, event := range existingEvents {
+			workID := ""
+			if event.ExtendedProperties != nil && event.ExtendedProperties.Private != nil {
+				workID = event.ExtendedProperties.Private["workEventId"]
+			}
+			if workID == "" {
+				manuallyCreatedCount++
+			}
 		}
-		log.Printf("[%s] User confirmed - proceeding with sync", destName)
+		
+		if manuallyCreatedCount > 0 {
+			// Calendar has manually created events - prompt for confirmation
+			message := fmt.Sprintf(
+				"\n⚠️  WARNING: The calendar '%s' contains %d manually created event(s) (without workEventId).\n"+
+					"This tool will DELETE these events as they are not present in your work calendar.\n\n"+
+					"Are you sure you want to proceed?",
+				s.destination.CalendarName, manuallyCreatedCount)
+			
+			if !promptForConfirmation(message) {
+				return fmt.Errorf("sync cancelled by user")
+			}
+			log.Printf("[%s] User confirmed - proceeding with sync", destName)
+		}
 	}
 
 	// Calculate time window: from past weeks to future weeks from start of current week
