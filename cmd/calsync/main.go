@@ -19,7 +19,8 @@ func printHelp() {
 	fmt.Fprintf(os.Stderr, `Calendar Sync Tool
 
 A one-way synchronization tool that syncs events from a work Google Calendar
-to a personal Google Calendar, creating a read-only "Work Sync" calendar.
+to one or more destination calendars (Google Calendar or Apple Calendar/iCloud),
+creating read-only "Work Sync" calendars in each destination.
 
 USAGE:
     %s [OPTIONS]
@@ -101,20 +102,27 @@ ENVIRONMENT VARIABLES:
         APPLE_CALDAV_PASSWORD      Apple CalDAV password (Apple only)
 
 DESCRIPTION:
-    This tool performs a one-way sync from your work Google Calendar to your
-    personal calendar (Google Calendar or Apple Calendar/iCloud). It creates a
-    separate "Work Sync" calendar in your destination account and populates it
-    with filtered events from your work calendar.
+    This tool performs a one-way sync from your work Google Calendar to one or more
+    destination calendars (Google Calendar or Apple Calendar/iCloud). It creates a
+    separate "Work Sync" calendar in each destination account and populates it with
+    filtered events from your work calendar.
 
-    The tool syncs events within a two-week rolling window (current week + next week)
-    and applies the following filters:
-    - All all-day events are synced (including Out of Office)
+    You can sync to multiple destinations in a single run by specifying them in the
+    config file using the "destinations" array. Each destination can have its own
+    calendar name and color.
+
+    The tool syncs events within a configurable rolling window (default: current week
+    + next week, configurable via sync_window_weeks and sync_window_weeks_past) and
+    applies the following filters:
+    - All all-day events are synced (including Out of Office, except work location events)
     - Timed events between 6:00 AM and 12:00 AM (midnight) are synced
     - Timed Out of Office events are skipped
     - Recurring events are expanded to individual instances
 
-    On first run, you will be prompted to authorize both accounts via OAuth 2.0.
-    Subsequent runs use stored refresh tokens.
+    Authentication:
+    - Work account: OAuth 2.0 (you'll be prompted on first run)
+    - Google Calendar destinations: OAuth 2.0 (you'll be prompted on first run)
+    - Apple Calendar destinations: App-specific password (no OAuth)
 
 EXAMPLES:
     # Run the sync with a config file
