@@ -255,6 +255,13 @@ GOOGLE_CREDENTIALS_PATH="/path/to/creds.json" ./calsync --config config.json
 
 ### Scheduled Execution (Cron)
 
+The tool automatically detects when running in non-interactive mode (e.g., from cron). In this mode:
+- **Confirmation prompts are skipped** - the tool will not wait for user input
+- **If manually created events are found**, the sync will fail with a clear error message
+- This prevents the sync from hanging in automated environments
+
+**Important**: Before setting up automated syncs, ensure your destination calendar only contains synced events (events with `workEventId`). Manually created events should be removed or moved to a different calendar.
+
 For hourly syncs, add to your crontab:
 
 ```bash

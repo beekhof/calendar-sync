@@ -128,6 +128,13 @@ DESCRIPTION:
     - Google Calendar destinations: OAuth 2.0 (you'll be prompted on first run)
     - Apple Calendar destinations: App-specific password (no OAuth)
 
+    Interactive vs Non-Interactive Mode:
+    - When run interactively (from a terminal), the tool will prompt for confirmation
+      if manually created events are found in the destination calendar
+    - When run non-interactively (e.g., from cron), the tool will fail with an error
+      if manually created events are found, preventing accidental deletions
+    - This ensures automated runs are safe and won't hang waiting for input
+
 EXAMPLES:
     # Run the sync with a config file
     %s --config /path/to/config.json
