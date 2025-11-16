@@ -55,7 +55,8 @@ CONFIGURATION PRECEDENCE (highest to lowest):
     4. Defaults
 
 CONFIG FILE:
-    All settings can be specified in a JSON config file.     Example for Google Calendar:
+    All settings can be specified in a JSON config file. For a single destination
+    (backward compatible):
     {
       "work_token_path": "/path/to/work_token.json",
       "personal_token_path": "/path/to/personal_token.json",
@@ -67,17 +68,30 @@ CONFIG FILE:
       "sync_window_weeks_past": 0
     }
     
-    Example for Apple Calendar destination:
+    For multiple destinations (recommended):
     {
       "work_token_path": "/path/to/work_token.json",
-      "sync_calendar_name": "Work Sync",
       "google_credentials_path": "/path/to/credentials.json",
-      "destination_type": "apple",
-      "apple_caldav_server_url": "https://caldav.icloud.com",
-      "apple_caldav_username": "your-email@icloud.com",
-      "apple_caldav_password": "app-specific-password",
       "sync_window_weeks": 2,
-      "sync_window_weeks_past": 0
+      "sync_window_weeks_past": 0,
+      "destinations": [
+        {
+          "name": "Personal Google",
+          "type": "google",
+          "token_path": "/path/to/personal_token.json",
+          "calendar_name": "Work Sync",
+          "calendar_color_id": "7"
+        },
+        {
+          "name": "iCloud",
+          "type": "apple",
+          "server_url": "https://caldav.icloud.com",
+          "username": "your-email@icloud.com",
+          "password": "app-specific-password",
+          "calendar_name": "Work",
+          "calendar_color_id": "1"
+        }
+      ]
     }
     
     The Google credentials JSON file should be in the format downloaded from
