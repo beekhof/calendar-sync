@@ -474,7 +474,7 @@ func (s *Syncer) Sync(ctx context.Context) error {
 					actualStart = destEvent.Start.Date
 				}
 			}
-			log.Printf("DEBUG: Found event '%s' with normalized_start=%s, actual_start=%s, workEventId=%q, ID=%s",
+			s.debugLog("Found event '%s' with normalized_start=%s, actual_start=%s, workEventId=%q, ID=%s",
 				destEvent.Summary, destEvent.Start.DateTime, actualStart, workID, destEvent.Id)
 		}
 
