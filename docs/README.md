@@ -2,6 +2,10 @@
 
 A one-way synchronization tool that syncs events from a work Google Calendar to a personal calendar (Google Calendar or Apple Calendar/iCloud). This tool is designed to work around admin restrictions by using API access instead of the standard calendar sharing UI.
 
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](../LICENSE) file for details.
+
 ## Overview
 
 The Calendar Sync Tool creates a read-only "Work Sync" calendar in your personal calendar account (Google Calendar or Apple Calendar/iCloud), populated with filtered events from your work Google Calendar. The work calendar is the "source of truth" - any manual changes made to the synced calendar will be overwritten on the next sync.
