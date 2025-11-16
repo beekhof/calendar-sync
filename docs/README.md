@@ -253,14 +253,32 @@ After the first run, the tool uses stored refresh tokens and runs automatically 
 GOOGLE_CREDENTIALS_PATH="/path/to/creds.json" ./calsync --config config.json
 ```
 
-### Scheduled Execution (Cron)
+### Scheduled Execution
 
-The tool automatically detects when running in non-interactive mode (e.g., from cron). In this mode:
+The tool automatically detects when running in non-interactive mode (e.g., from launchd or cron). In this mode:
 - **Confirmation prompts are skipped** - the tool will not wait for user input
 - **If manually created events are found**, the sync will fail with a clear error message
 - This prevents the sync from hanging in automated environments
 
 **Important**: Before setting up automated syncs, ensure your destination calendar only contains synced events (events with `workEventId`). Manually created events should be removed or moved to a different calendar.
+
+#### macOS: Using launchd (Recommended)
+
+`launchd` is the native macOS scheduler and is recommended over cron. See [SETUP_LAUNCHD.md](SETUP_LAUNCHD.md) for detailed instructions.
+
+Quick setup:
+```bash
+# 1. Edit com.beekhof.calsync.plist to match your paths
+# 2. Install the service
+cp com.beekhof.calsync.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.beekhof.calsync.plist
+
+# 3. Verify it's running
+launchctl list | grep calsync
+tail -f ~/Library/Logs/calsync/stderr.log
+```
+
+#### Alternative: Using Cron
 
 For hourly syncs, add to your crontab:
 
@@ -268,9 +286,11 @@ For hourly syncs, add to your crontab:
 # Edit crontab
 crontab -e
 
-# Add this line (runs every hour)
-0 * * * * /path/to/calsync --config /path/to/config.json >> /var/log/calsync.log 2>&1
+# Add this line (runs every hour at minute 0)
+0 * * * * /path/to/calsync --config /path/to/config.json >> ~/Library/Logs/calsync/cron.log 2>&1
 ```
+
+**Note**: Cron on macOS may not run when the computer is asleep. launchd handles this better.
 
 ## Configuration Options
 

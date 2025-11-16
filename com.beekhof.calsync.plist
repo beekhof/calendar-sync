@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.beekhof.calsync</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>calsync</string>
+        <string>--config</string>
+        <string>/Users/beekhof/repos/calendar-sync/config.json</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/beekhof/Library/Logs/calsync/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/beekhof/Library/Logs/calsync/stderr.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/beekhof/go/bin</string>
+    </dict>
+</dict>
+</plist>
+
