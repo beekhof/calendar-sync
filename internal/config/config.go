@@ -56,7 +56,8 @@ type Config struct {
 	AppleCalDAVPassword  string `json:"apple_caldav_password,omitempty"`   // App-specific password
 
 	// Sync window configuration
-	SyncWindowWeeks int `json:"sync_window_weeks,omitempty"` // Number of weeks to sync from start of current week (default: 2)
+	SyncWindowWeeks     int `json:"sync_window_weeks,omitempty"`      // Number of weeks to sync forward from start of current week (default: 2)
+	SyncWindowWeeksPast int `json:"sync_window_weeks_past,omitempty"` // Number of weeks to sync backward from start of current week (default: 0)
 }
 
 // LoadConfigFromFile loads configuration from a JSON file.
@@ -126,6 +127,13 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 		var err error
 		if config.SyncWindowWeeks, err = parseInt(syncWindowWeeks); err != nil {
 			return nil, fmt.Errorf("invalid SYNC_WINDOW_WEEKS value: %w", err)
+		}
+	}
+	// Sync window weeks past from environment variable
+	if syncWindowWeeksPast := os.Getenv("SYNC_WINDOW_WEEKS_PAST"); syncWindowWeeksPast != "" {
+		var err error
+		if config.SyncWindowWeeksPast, err = parseInt(syncWindowWeeksPast); err != nil {
+			return nil, fmt.Errorf("invalid SYNC_WINDOW_WEEKS_PAST value: %w", err)
 		}
 	}
 
@@ -201,10 +209,13 @@ func LoadConfig(configFile string, workTokenPathFlag, personalTokenPathFlag, syn
 		config.SyncCalendarColorID = "7"
 	}
 
-	// Default sync window to 2 weeks (current week + next week)
+	// Default sync window to 2 weeks forward (current week + next week)
 	if config.SyncWindowWeeks == 0 {
 		config.SyncWindowWeeks = 2
 	}
+
+	// Default sync window past to 0 weeks (no past events)
+	// No need to set default as 0 is already the zero value
 
 	return &config, nil
 }

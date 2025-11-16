@@ -300,7 +300,7 @@ func (s *Syncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	// Calculate time window: start of current week (Monday) to end of configured number of weeks
+	// Calculate time window: from past weeks to future weeks from start of current week
 	now := time.Now()
 
 	// Find the start of the current week (Monday)
@@ -312,15 +312,18 @@ func (s *Syncer) Sync(ctx context.Context) error {
 	startOfCurrentWeek := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	startOfCurrentWeek = startOfCurrentWeek.AddDate(0, 0, -daysFromMonday)
 
-	// End of sync window (Sunday at 23:59:59 of the last week)
+	// Start of sync window (Monday at 00:00:00 of the first week in the past)
+	// If SyncWindowWeeksPast is 0, start from current week
+	// If SyncWindowWeeksPast is 1, go back 1 week (so include last week)
+	// The start is 7 * SyncWindowWeeksPast days before the current week's Monday
+	timeMin := startOfCurrentWeek.AddDate(0, 0, -7*s.config.SyncWindowWeeksPast)
+
+	// End of sync window (Sunday at 23:59:59 of the last week in the future)
 	// SyncWindowWeeks weeks means: current week + (SyncWindowWeeks - 1) additional weeks
 	// For example, 2 weeks = current week (7 days) + next week (7 days) = 14 days total
 	// The last day is Sunday of the last week, which is 7 * SyncWindowWeeks - 1 days from Monday
-	endOfSyncWindow := startOfCurrentWeek.AddDate(0, 0, 7*s.config.SyncWindowWeeks-1)
-	endOfSyncWindow = time.Date(endOfSyncWindow.Year(), endOfSyncWindow.Month(), endOfSyncWindow.Day(), 23, 59, 59, 0, endOfSyncWindow.Location())
-
-	timeMin := startOfCurrentWeek
-	timeMax := endOfSyncWindow
+	timeMax := startOfCurrentWeek.AddDate(0, 0, 7*s.config.SyncWindowWeeks-1)
+	timeMax = time.Date(timeMax.Year(), timeMax.Month(), timeMax.Day(), 23, 59, 59, 0, timeMax.Location())
 
 	// Get source events from work calendar
 	sourceEvents, err := s.workClient.GetEvents("primary", timeMin, timeMax)

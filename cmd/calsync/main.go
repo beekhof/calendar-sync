@@ -62,7 +62,8 @@ CONFIG FILE:
       "sync_calendar_color_id": "7",
       "google_credentials_path": "/path/to/credentials.json",
       "destination_type": "google",
-      "sync_window_weeks": 2
+      "sync_window_weeks": 2,
+      "sync_window_weeks_past": 0
     }
     
     Example for Apple Calendar destination:
@@ -74,7 +75,8 @@ CONFIG FILE:
       "apple_caldav_server_url": "https://caldav.icloud.com",
       "apple_caldav_username": "your-email@icloud.com",
       "apple_caldav_password": "app-specific-password",
-      "sync_window_weeks": 2
+      "sync_window_weeks": 2,
+      "sync_window_weeks_past": 0
     }
     
     The Google credentials JSON file should be in the format downloaded from
@@ -92,7 +94,8 @@ ENVIRONMENT VARIABLES:
         SYNC_CALENDAR_COLOR_ID    Color ID for the sync calendar (default: "7" for Grape)
         GOOGLE_CREDENTIALS_PATH   Path to Google OAuth credentials JSON file
         DESTINATION_TYPE          Destination calendar type: 'google' or 'apple' (default: 'google')
-        SYNC_WINDOW_WEEKS         Number of weeks to sync from start of current week (default: 2)
+        SYNC_WINDOW_WEEKS         Number of weeks to sync forward from start of current week (default: 2)
+        SYNC_WINDOW_WEEKS_PAST    Number of weeks to sync backward from start of current week (default: 0)
         APPLE_CALDAV_SERVER_URL   Apple CalDAV server URL (Apple only)
         APPLE_CALDAV_USERNAME      Apple CalDAV username (Apple only)
         APPLE_CALDAV_PASSWORD      Apple CalDAV password (Apple only)
