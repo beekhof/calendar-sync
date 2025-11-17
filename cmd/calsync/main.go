@@ -27,30 +27,17 @@ USAGE:
 
 OPTIONS:
     -h, --help                    Show this help message and exit
-    --config FILE                 Path to JSON config file (optional)
-                                  All settings can be specified in the config file
+    -v, --verbose                 Enable verbose output (show DEBUG logs)
+    --config FILE                 Path to JSON config file (required)
+                                  All settings must be specified in the config file
     --work-token-path PATH        Path to store the work account OAuth token
                                   (overrides config file and WORK_TOKEN_PATH env var)
-    --personal-token-path PATH    Path to store the personal account OAuth token
-                                  (overrides config file and PERSONAL_TOKEN_PATH env var)
-    --sync-calendar-name NAME     Name of the calendar to create/use
-                                  (default: "Work Sync", overrides config file and SYNC_CALENDAR_NAME env var)
-    --sync-calendar-color-id ID   Color ID for the sync calendar
-                                  (default: "7" for Grape, overrides config file and SYNC_CALENDAR_COLOR_ID env var)
     --google-credentials-path PATH Path to Google OAuth credentials JSON file
                                   (overrides config file and GOOGLE_CREDENTIALS_PATH env var)
-    --destination-type TYPE       Destination calendar type: 'google' or 'apple'
-                                  (default: 'google', overrides config file and DESTINATION_TYPE env var)
-    --apple-caldav-server-url URL  Apple CalDAV server URL (e.g., 'https://caldav.icloud.com')
-                                  (overrides config file and APPLE_CALDAV_SERVER_URL env var)
-    --apple-caldav-username USER   Apple CalDAV username (iCloud email)
-                                  (overrides config file and APPLE_CALDAV_USERNAME env var)
-    --apple-caldav-password PASS   Apple CalDAV password (app-specific password)
-                                  (overrides config file and APPLE_CALDAV_PASSWORD env var)
 
 CONFIGURATION PRECEDENCE (highest to lowest):
-    1. Command-line flags
-    2. Environment variables
+    1. Command-line flags (only --work-token-path and --google-credentials-path)
+    2. Environment variables (WORK_TOKEN_PATH, GOOGLE_CREDENTIALS_PATH, SYNC_WINDOW_WEEKS, SYNC_WINDOW_WEEKS_PAST)
     3. Config file (--config)
     4. Defaults
 
