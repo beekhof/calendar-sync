@@ -866,6 +866,13 @@ func TestAppleCalendar_GetEvent(t *testing.T) {
 	}
 
 	t.Logf("Successfully retrieved single event using GetEvent with ID: %s", eventID)
+
+	// Cleanup: delete the test event
+	t.Cleanup(func() {
+		if err := client.DeleteEvent(calendarID, eventID); err != nil {
+			t.Logf("Warning: failed to cleanup test event %s: %v", eventID, err)
+		}
+	})
 }
 
 // TestAppleCalendar_SpecialCharacters tests that event IDs with special characters are handled correctly
