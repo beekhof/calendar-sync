@@ -235,39 +235,39 @@ func (s *Syncer) prepareSyncEvent(sourceEvent *calendar.Event) *calendar.Event {
 }
 
 // eventsEqual checks if two events have the same key properties.
+// Returns (equal, fieldName) where fieldName is the name of the field that differs,
+// or empty string if the events are equal.
 // debugLog is an optional function for verbose logging (can be nil).
-func eventsEqual(event1, event2 *calendar.Event, debugLog func(string, ...interface{})) bool {
+func eventsEqual(event1, event2 *calendar.Event, debugLog func(string, ...interface{})) (bool, string) {
 	if event1.Summary != event2.Summary {
 		if debugLog != nil {
 			debugLog("summary mismatch: %v != %v", event1.Summary, event2.Summary)
 		}
-		return false
+		return false, "summary"
 	}
 
-	// Description comparison is intentionally skipped
-	// It causes problems with escaping characters in the description
-	// if event1.Description != event2.Description {
-	//     if debugLog != nil {
-	//         debugLog("description mismatch: %v != %v", event1.Description, event2.Description)
-	//     }
-	//     return false
-	// }
+	if event1.Description != event2.Description {
+		if debugLog != nil {
+			debugLog("description mismatch: %v != %v", event1.Description, event2.Description)
+		}
+		return false, "description"
+	}
 
 	if event1.Location != event2.Location {
 		if debugLog != nil {
 			debugLog("location mismatch: %v != %v", event1.Location, event2.Location)
 		}
-		return false
+		return false, "location"
 	}
 
 	// Compare start times (normalize timezones for DateTime comparisons)
-	if !timesEqual(event1.Start, event2.Start, "start", debugLog) {
-		return false
+	if equal, field := timesEqual(event1.Start, event2.Start, "start", debugLog); !equal {
+		return false, field
 	}
 
 	// Compare end times (normalize timezones for DateTime comparisons)
-	if !timesEqual(event1.End, event2.End, "end", debugLog) {
-		return false
+	if equal, field := timesEqual(event1.End, event2.End, "end", debugLog); !equal {
+		return false, field
 	}
 
 	// Compare conference data (Google Meet links)
@@ -277,25 +277,27 @@ func eventsEqual(event1, event2 *calendar.Event, debugLog func(string, ...interf
 		if debugLog != nil {
 			debugLog("conference data mismatch: %v != %v", meetURL1, meetURL2)
 		}
-		return false
+		return false, "conference"
 	}
 
-	return true
+	return true, ""
 }
 
 // timesEqual compares two EventDateTime values, normalizing timezones for DateTime comparisons.
 // For all-day events (Date field), it compares the date strings directly.
 // For timed events (DateTime field), it parses and compares the times in UTC.
-func timesEqual(dt1, dt2 *calendar.EventDateTime, fieldName string, debugLog func(string, ...interface{})) bool {
+// Returns (equal, fieldName) where fieldName is the field name (e.g., "start" or "end") if different,
+// or empty string if equal.
+func timesEqual(dt1, dt2 *calendar.EventDateTime, fieldName string, debugLog func(string, ...interface{})) (bool, string) {
 	// Handle nil cases
 	if dt1 == nil && dt2 == nil {
-		return true
+		return true, ""
 	}
 	if dt1 == nil || dt2 == nil {
 		if debugLog != nil {
 			debugLog("%s time mismatch: one is nil, other is not", fieldName)
 		}
-		return false
+		return false, fieldName
 	}
 
 	// Check if both are all-day events (Date field)
@@ -305,9 +307,9 @@ func timesEqual(dt1, dt2 *calendar.EventDateTime, fieldName string, debugLog fun
 			if debugLog != nil {
 				debugLog("%s date mismatch: %v != %v", fieldName, dt1.Date, dt2.Date)
 			}
-			return false
+			return false, fieldName
 		}
-		return true
+		return true, ""
 	}
 
 	// Check if both are timed events (DateTime field)
@@ -321,9 +323,9 @@ func timesEqual(dt1, dt2 *calendar.EventDateTime, fieldName string, debugLog fun
 				if debugLog != nil {
 					debugLog("%s time mismatch (parse failed): %v != %v", fieldName, dt1.DateTime, dt2.DateTime)
 				}
-				return false
+				return false, fieldName
 			}
-			return true
+			return true, ""
 		}
 		// Compare in UTC to normalize timezones
 		if !t1.UTC().Equal(t2.UTC()) {
@@ -331,9 +333,9 @@ func timesEqual(dt1, dt2 *calendar.EventDateTime, fieldName string, debugLog fun
 				debugLog("%s time mismatch: %v (UTC: %v) != %v (UTC: %v)", fieldName,
 					dt1.DateTime, t1.UTC(), dt2.DateTime, t2.UTC())
 			}
-			return false
+			return false, fieldName
 		}
-		return true
+		return true, ""
 	}
 
 	// One is Date, other is DateTime - they don't match
@@ -341,7 +343,7 @@ func timesEqual(dt1, dt2 *calendar.EventDateTime, fieldName string, debugLog fun
 		debugLog("%s time type mismatch: one is Date (%v), other is DateTime (%v)", fieldName,
 			dt1.Date != "", dt2.Date != "")
 	}
-	return false
+	return false, fieldName
 }
 
 // getMeetURL extracts the Google Meet URL from an event's conferenceData.
