@@ -125,8 +125,11 @@ DESCRIPTION:
     - This ensures automated runs are safe and won't hang waiting for input
 
 EXAMPLES:
-    # Run the sync with a config file
+    # Run the sync with a config file (syncs to all destinations)
     %s --config /path/to/config.json
+
+    # Sync only to a specific destination
+    %s --config /path/to/config.json --destination "Personal Google Calendar"
 
     # Run the sync with config file, but override credentials path via environment
     GOOGLE_CREDENTIALS_PATH="/path/to/creds.json" %s --config /path/to/config.json
@@ -137,7 +140,7 @@ EXAMPLES:
     # Show help
     %s --help
 
-`, os.Args[0], os.Args[0], os.Args[0], os.Args[0], os.Args[0])
+`, os.Args[0], os.Args[0], os.Args[0], os.Args[0], os.Args[0], os.Args[0])
 }
 
 func main() {
