@@ -1345,19 +1345,34 @@ func icalToGoogleEvent(icalCal *ical.Calendar) (*calendar.Event, error) {
 		event.Id = uid.Value
 	}
 
-	// Extract summary
+	// Extract summary (use Text() to unescape iCalendar escaping)
 	if summary := vevent.Props.Get(ical.PropSummary); summary != nil {
-		event.Summary = summary.Value
+		if text, err := summary.Text(); err == nil {
+			event.Summary = text
+		} else {
+			// Fallback to Value if Text() fails
+			event.Summary = summary.Value
+		}
 	}
 
-	// Extract description
+	// Extract description (use Text() to unescape iCalendar escaping)
 	if desc := vevent.Props.Get(ical.PropDescription); desc != nil {
-		event.Description = desc.Value
+		if text, err := desc.Text(); err == nil {
+			event.Description = text
+		} else {
+			// Fallback to Value if Text() fails
+			event.Description = desc.Value
+		}
 	}
 
-	// Extract location
+	// Extract location (use Text() to unescape iCalendar escaping)
 	if loc := vevent.Props.Get(ical.PropLocation); loc != nil {
-		event.Location = loc.Value
+		if text, err := loc.Text(); err == nil {
+			event.Location = text
+		} else {
+			// Fallback to Value if Text() fails
+			event.Location = loc.Value
+		}
 	}
 
 	// Extract start time
