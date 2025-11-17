@@ -584,12 +584,13 @@ func (s *Syncer) Sync(ctx context.Context) error {
 
 			// Check if the event has changed
 			preparedEvent := s.prepareSyncEvent(sourceEvent)
-			if !eventsEqual(destEvent, preparedEvent, s.debugLog) {
+			equal, diffField := eventsEqual(destEvent, preparedEvent, s.debugLog)
+			if !equal {
 				// Event has changed, update it
 				if err := s.personalClient.UpdateEvent(destCalendarID, destEvent.Id, preparedEvent); err != nil {
-					log.Printf("Warning: failed to update event %s (summary: %v): %v", destEvent.Id, preparedEvent.Summary, err)
+					log.Printf("Warning: failed to update event %s (summary: %v, changed field: %s): %v", destEvent.Id, preparedEvent.Summary, diffField, err)
 				} else {
-					log.Printf("Updated event %s (workEventId: %s, summary: %v)", destEvent.Id, workID, preparedEvent.Summary)
+					log.Printf("Updated event %s (workEventId: %s, summary: %v, changed field: %s)", destEvent.Id, workID, preparedEvent.Summary, diffField)
 				}
 			}
 			// Remove from map to mark as processed
