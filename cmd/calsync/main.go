@@ -30,6 +30,8 @@ OPTIONS:
     -v, --verbose                 Enable verbose output (show DEBUG logs)
     --config FILE                 Path to JSON config file (required)
                                   All settings must be specified in the config file
+    --destination NAME            Sync only to the named destination (optional)
+                                  If not specified, syncs to all destinations
     --work-token-path PATH        Path to store the work account OAuth token
                                   (overrides config file and WORK_TOKEN_PATH env var)
     --google-credentials-path PATH Path to Google OAuth credentials JSON file
@@ -145,6 +147,7 @@ func main() {
 	verboseFlag := flag.Bool("verbose", false, "Enable verbose output (show DEBUG logs)")
 	verboseFlagShort := flag.Bool("v", false, "Enable verbose output (shorthand)")
 	configFile := flag.String("config", "", "Path to JSON config file (required)")
+	destinationName := flag.String("destination", "", "Sync only to the named destination (optional)")
 	workTokenPath := flag.String("work-token-path", "", "Path to store the work account OAuth token (overrides config file and WORK_TOKEN_PATH env var)")
 	googleCredentialsPath := flag.String("google-credentials-path", "", "Path to Google OAuth credentials JSON file (overrides config file and GOOGLE_CREDENTIALS_PATH env var)")
 	flag.Parse()
@@ -207,9 +210,28 @@ func main() {
 		log.Fatalf("Failed to create work calendar client: %v", err)
 	}
 
-	// Sync to all destinations
+	// Filter destinations if --destination flag is provided
+	destinations := cfg.Destinations
+	if *destinationName != "" {
+		found := false
+		filtered := []config.Destination{}
+		for _, dest := range cfg.Destinations {
+			if dest.Name == *destinationName {
+				filtered = append(filtered, dest)
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Fatalf("Destination '%s' not found in config. Available destinations: %v", *destinationName, getDestinationNames(cfg.Destinations))
+		}
+		destinations = filtered
+		log.Printf("Syncing only to destination: %s", *destinationName)
+	}
+
+	// Sync to selected destinations
 	var syncErrors []error
-	for _, dest := range cfg.Destinations {
+	for _, dest := range destinations {
 		log.Printf("Syncing to destination: %s (type: %s)", dest.Name, dest.Type)
 
 		// Create the destination calendar client based on destination type
@@ -255,12 +277,21 @@ func main() {
 
 	// Report results
 	if len(syncErrors) > 0 {
-		log.Printf("Sync completed with %d error(s) out of %d destination(s)", len(syncErrors), len(cfg.Destinations))
+		log.Printf("Sync completed with %d error(s) out of %d destination(s)", len(syncErrors), len(destinations))
 		for _, err := range syncErrors {
 			log.Printf("  - %v", err)
 		}
 		os.Exit(1)
 	}
 
-	log.Printf("All syncs completed successfully (%d destination(s))", len(cfg.Destinations))
+	log.Printf("All syncs completed successfully (%d destination(s))", len(destinations))
+}
+
+// getDestinationNames returns a slice of destination names from the destinations array.
+func getDestinationNames(destinations []config.Destination) []string {
+	names := make([]string, len(destinations))
+	for i, dest := range destinations {
+		names[i] = dest.Name
+	}
+	return names
 }
