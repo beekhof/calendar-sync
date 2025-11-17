@@ -87,7 +87,7 @@ func startLocalServer() (string, <-chan string, <-chan error, error) {
 		}
 		go func() {
 			time.Sleep(1 * time.Second)
-			server.Shutdown(context.Background())
+			_ = server.Shutdown(context.Background()) // Ignore shutdown errors in background goroutine
 		}()
 	})
 	server.Handler = mux

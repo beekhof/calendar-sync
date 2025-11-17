@@ -244,14 +244,14 @@ func eventsEqual(event1, event2 *calendar.Event, debugLog func(string, ...interf
 		return false
 	}
 
-	if event1.Description != event2.Description {
-		// skip this check for now
-		// It causes problems with escaping characters in the description
-		//if debugLog != nil {
-		//	debugLog("description mismatch: %v != %v", event1.Description, event2.Description)
-		//}
-		//return false
-	}
+	// Description comparison is intentionally skipped
+	// It causes problems with escaping characters in the description
+	// if event1.Description != event2.Description {
+	//     if debugLog != nil {
+	//         debugLog("description mismatch: %v != %v", event1.Description, event2.Description)
+	//     }
+	//     return false
+	// }
 
 	if event1.Location != event2.Location {
 		if debugLog != nil {

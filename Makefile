@@ -68,7 +68,7 @@ fmt:
 	@echo "Format complete"
 
 # Run linter (requires golangci-lint)
-lint:
+lint: vet
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		echo "Running linter..."; \
 		golangci-lint run; \
@@ -81,13 +81,6 @@ lint:
 vet:
 	@echo "Running go vet..."
 	@go vet ./...
-
-# Run all linters (vet + golangci-lint if available)
-lint-all: vet
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		echo "Running golangci-lint..."; \
-		golangci-lint run; \
-	fi
 
 # Download dependencies
 deps:

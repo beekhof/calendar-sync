@@ -256,7 +256,6 @@ func (c *AppleCalendarClient) discoverPrincipal() (string, error) {
 		// 1. {principal}/calendars/ (most common)
 		// 2. {principal} (if principal is already the calendar home)
 		// 3. Extract numeric ID and try /{id}/calendars/ (some iCloud setups)
-		testPaths := []string{}
 
 		// Extract numeric ID from principal (e.g., /88940651/principal/ -> 88940651)
 		parts := strings.Split(strings.Trim(principal, "/"), "/")
@@ -265,6 +264,7 @@ func (c *AppleCalendarClient) discoverPrincipal() (string, error) {
 			numericID = parts[0]
 		}
 
+		var testPaths []string
 		if strings.HasSuffix(principal, "/") {
 			testPaths = []string{
 				principal + "calendars/",
@@ -848,7 +848,9 @@ func (c *AppleCalendarClient) FindOrCreateCalendarByName(name string, colorID st
 	// iCloud typically uses UUID-based paths for calendars (as seen in existing calendars)
 	// Generate a UUID v4 for the calendar path
 	uuidBytes := make([]byte, 16)
-	rand.Read(uuidBytes)
+	if _, err := rand.Read(uuidBytes); err != nil {
+		return "", fmt.Errorf("failed to generate UUID: %w", err)
+	}
 	uuidBytes[6] = (uuidBytes[6] & 0x0f) | 0x40 // Version 4
 	uuidBytes[8] = (uuidBytes[8] & 0x3f) | 0x80 // Variant 10
 	uuid := fmt.Sprintf("%s-%s-%s-%s-%s",
@@ -1167,7 +1169,6 @@ func (c *AppleCalendarClient) UpdateEvent(calendarID, eventID string, event *cal
 		return fmt.Errorf("failed to update event: %w", err2)
 	}
 	resp = resp2
-	err = err2
 	defer resp.Body.Close()
 
 	// Read response body for error details
