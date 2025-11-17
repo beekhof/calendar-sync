@@ -136,6 +136,13 @@ func TestAppleCalendar_InsertAndGet(t *testing.T) {
 	}
 
 	t.Logf("Successfully retrieved event with ID: %s", foundEvent.Id)
+
+	// Cleanup: delete the test event
+	t.Cleanup(func() {
+		if err := client.DeleteEvent(calendarID, foundEvent.Id); err != nil {
+			t.Logf("Warning: failed to cleanup test event %s: %v", foundEvent.Id, err)
+		}
+	})
 }
 
 // TestAppleCalendar_FindByWorkID tests finding events by workEventId
@@ -223,6 +230,15 @@ func TestAppleCalendar_FindByWorkID(t *testing.T) {
 	}
 
 	t.Logf("Successfully found event by workEventId: %s", workEventID)
+
+	// Cleanup: delete all found test events
+	t.Cleanup(func() {
+		for _, event := range foundEvents {
+			if err := client.DeleteEvent(calendarID, event.Id); err != nil {
+				t.Logf("Warning: failed to cleanup test event %s: %v", event.Id, err)
+			}
+		}
+	})
 }
 
 // TestAppleCalendar_Delete tests deleting an event
@@ -324,6 +340,7 @@ func TestAppleCalendar_Delete(t *testing.T) {
 		t.Fatalf("Failed to get events after deletion: %v", err)
 	}
 
+	// Note: No cleanup needed - this test already deletes the event
 	// Check if the event still exists
 	for _, event := range eventsAfter {
 		if event.Id == eventToDelete.Id {
@@ -632,6 +649,15 @@ func TestAppleCalendar_InsertDeleteInsert(t *testing.T) {
 		t.Errorf("Expected 1 event with workEventId %q after re-insert, found %d", workEventID, len(foundEvents))
 	}
 
+	// Cleanup: delete the re-inserted event
+	t.Cleanup(func() {
+		if secondEvent != nil {
+			if err := client.DeleteEvent(calendarID, secondEvent.Id); err != nil {
+				t.Logf("Warning: failed to cleanup test event %s: %v", secondEvent.Id, err)
+			}
+		}
+	})
+
 	t.Logf("Successfully completed insert-delete-insert cycle")
 }
 
@@ -731,6 +757,13 @@ func TestAppleCalendar_AllDayEvent(t *testing.T) {
 	}
 
 	t.Logf("Successfully verified all-day event with date: %s", foundEvent.Start.Date)
+
+	// Cleanup: delete the test event
+	t.Cleanup(func() {
+		if err := client.DeleteEvent(calendarID, foundEvent.Id); err != nil {
+			t.Logf("Warning: failed to cleanup test event %s: %v", foundEvent.Id, err)
+		}
+	})
 }
 
 // TestAppleCalendar_GetEvent tests retrieving a single event by ID
@@ -928,4 +961,11 @@ func TestAppleCalendar_SpecialCharacters(t *testing.T) {
 	}
 
 	t.Logf("Successfully verified event with special characters. Sanitized ID: %s", foundEvent.Id)
+
+	// Cleanup: delete the test event
+	t.Cleanup(func() {
+		if err := client.DeleteEvent(calendarID, foundEvent.Id); err != nil {
+			t.Logf("Warning: failed to cleanup test event %s: %v", foundEvent.Id, err)
+		}
+	})
 }
