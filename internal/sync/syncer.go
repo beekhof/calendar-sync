@@ -260,35 +260,13 @@ func eventsEqual(event1, event2 *calendar.Event, debugLog func(string, ...interf
 		return false
 	}
 
-	// Compare start times
-	start1 := event1.Start.DateTime
-	if start1 == "" {
-		start1 = event1.Start.Date
-	}
-	start2 := event2.Start.DateTime
-	if start2 == "" {
-		start2 = event2.Start.Date
-	}
-	if start1 != start2 {
-		if debugLog != nil {
-			debugLog("start time mismatch: %v != %v", start1, start2)
-		}
+	// Compare start times (normalize timezones for DateTime comparisons)
+	if !timesEqual(event1.Start, event2.Start, "start", debugLog) {
 		return false
 	}
 
-	// Compare end times
-	end1 := event1.End.DateTime
-	if end1 == "" {
-		end1 = event1.End.Date
-	}
-	end2 := event2.End.DateTime
-	if end2 == "" {
-		end2 = event2.End.Date
-	}
-	if end1 != end2 {
-		if debugLog != nil {
-			debugLog("end time mismatch: %v != %v", end1, end2)
-		}
+	// Compare end times (normalize timezones for DateTime comparisons)
+	if !timesEqual(event1.End, event2.End, "end", debugLog) {
 		return false
 	}
 
@@ -303,6 +281,67 @@ func eventsEqual(event1, event2 *calendar.Event, debugLog func(string, ...interf
 	}
 
 	return true
+}
+
+// timesEqual compares two EventDateTime values, normalizing timezones for DateTime comparisons.
+// For all-day events (Date field), it compares the date strings directly.
+// For timed events (DateTime field), it parses and compares the times in UTC.
+func timesEqual(dt1, dt2 *calendar.EventDateTime, fieldName string, debugLog func(string, ...interface{})) bool {
+	// Handle nil cases
+	if dt1 == nil && dt2 == nil {
+		return true
+	}
+	if dt1 == nil || dt2 == nil {
+		if debugLog != nil {
+			debugLog("%s time mismatch: one is nil, other is not", fieldName)
+		}
+		return false
+	}
+
+	// Check if both are all-day events (Date field)
+	if dt1.Date != "" && dt2.Date != "" {
+		// Both are all-day events - compare date strings directly
+		if dt1.Date != dt2.Date {
+			if debugLog != nil {
+				debugLog("%s date mismatch: %v != %v", fieldName, dt1.Date, dt2.Date)
+			}
+			return false
+		}
+		return true
+	}
+
+	// Check if both are timed events (DateTime field)
+	if dt1.DateTime != "" && dt2.DateTime != "" {
+		// Parse both times and compare in UTC
+		t1, err1 := time.Parse(time.RFC3339, dt1.DateTime)
+		t2, err2 := time.Parse(time.RFC3339, dt2.DateTime)
+		if err1 != nil || err2 != nil {
+			// If parsing fails, fall back to string comparison
+			if dt1.DateTime != dt2.DateTime {
+				if debugLog != nil {
+					debugLog("%s time mismatch (parse failed): %v != %v", fieldName, dt1.DateTime, dt2.DateTime)
+				}
+				return false
+			}
+			return true
+		}
+		// Compare in UTC to normalize timezones
+		if !t1.UTC().Equal(t2.UTC()) {
+			if debugLog != nil {
+				debugLog("%s time mismatch: %v (UTC: %v) != %v (UTC: %v)", fieldName,
+					dt1.DateTime, t1.UTC(), dt2.DateTime, t2.UTC())
+			}
+			return false
+		}
+		return true
+	}
+
+	// One is Date, other is DateTime - they don't match
+	if debugLog != nil {
+		debugLog("%s time type mismatch: one is Date (%v), other is DateTime (%v)", fieldName,
+			dt1.Date != "", dt2.Date != "")
+	}
+	return false
 }
 
 // getMeetURL extracts the Google Meet URL from an event's conferenceData.
@@ -378,7 +417,7 @@ func (s *Syncer) Sync(ctx context.Context) error {
 				manuallyCreatedCount++
 			}
 		}
-		
+
 		if manuallyCreatedCount > 0 {
 			// Calendar has manually created events - prompt for confirmation
 			message := fmt.Sprintf(
@@ -386,7 +425,7 @@ func (s *Syncer) Sync(ctx context.Context) error {
 					"This tool will DELETE these events as they are not present in your work calendar.\n\n"+
 					"Are you sure you want to proceed?",
 				s.destination.CalendarName, manuallyCreatedCount)
-			
+
 			if !promptForConfirmation(message) {
 				return fmt.Errorf("sync cancelled by user")
 			}
