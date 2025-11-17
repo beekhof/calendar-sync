@@ -504,6 +504,13 @@ func TestAppleCalendar_Update(t *testing.T) {
 	}
 
 	t.Logf("Successfully verified event update. Summary changed from %q to %q", testEvent.Summary, updatedEventFound.Summary)
+
+	// Cleanup: delete the test event
+	t.Cleanup(func() {
+		if err := client.DeleteEvent(calendarID, eventToUpdate.Id); err != nil {
+			t.Logf("Warning: failed to cleanup test event %s: %v", eventToUpdate.Id, err)
+		}
+	})
 }
 
 // TestAppleCalendar_InsertDeleteInsert tests the full cycle: insert, delete, insert again
