@@ -91,6 +91,81 @@ func isInteractive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
+// printWrappedURL prints a URL wrapped to fit terminal width, breaking at query parameter boundaries when possible.
+func printWrappedURL(url string) {
+	const maxWidth = 80
+	
+	// Try to get terminal width, fall back to 80 if unavailable
+	width := maxWidth
+	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
+		width = w
+		// Leave some margin
+		if width > 10 {
+			width -= 2
+		}
+	}
+	
+	// If URL fits in one line, just print it
+	if len(url) <= width {
+		fmt.Println(url)
+		return
+	}
+	
+	// Break URL at query parameter boundaries (&) when possible
+	// Start with the base URL (everything before the first ?)
+	parts := strings.SplitN(url, "?", 2)
+	if len(parts) == 1 {
+		// No query parameters, just print with line breaks
+		printWithLineBreaks(url, width)
+		return
+	}
+	
+	baseURL := parts[0] + "?"
+	queryParams := parts[1]
+	
+	// Print base URL
+	fmt.Print(baseURL)
+	currentLineLen := len(baseURL)
+	
+	// Split query parameters by &
+	params := strings.Split(queryParams, "&")
+	for i, param := range params {
+		// Add & separator if not first param
+		sep := ""
+		if i > 0 {
+			sep = "&"
+		}
+		
+		// Check if this param fits on current line
+		neededLen := len(sep) + len(param)
+		if currentLineLen > 0 && currentLineLen+neededLen > width {
+			// Start new line
+			fmt.Println()
+			fmt.Print("  ") // Indent continuation lines
+			currentLineLen = 2
+		} else if i > 0 {
+			fmt.Print(sep)
+			currentLineLen += len(sep)
+		}
+		
+		fmt.Print(param)
+		currentLineLen += len(param)
+	}
+	
+	fmt.Println()
+}
+
+// printWithLineBreaks prints a string with line breaks at the specified width.
+func printWithLineBreaks(s string, width int) {
+	for len(s) > width {
+		fmt.Println(s[:width])
+		s = s[width:]
+	}
+	if len(s) > 0 {
+		fmt.Println(s)
+	}
+}
+
 // startLocalServer starts a local HTTP server to receive the OAuth callback.
 // Returns the redirect URL, a channel for the authorization code, and a channel for errors.
 // Uses port 8080 by default, or a random port if 8080 is unavailable.
@@ -228,7 +303,7 @@ func performOAuthFlow(ctx context.Context, oauthConfig *oauth2.Config, tokenStor
 		fmt.Printf("Note: Port 8080 was unavailable. Make sure to add %s to your authorized redirect URIs in Google Cloud Console.\n", redirectURL)
 	}
 	fmt.Println("\nPlease visit the following URL to authorize the application:")
-	fmt.Println(authURL)
+	printWrappedURL(authURL)
 	fmt.Println("\nWaiting for authorization...")
 
 	// Wait for the authorization code
@@ -288,7 +363,7 @@ func GetAuthenticatedClientWithReader(ctx context.Context, oauthConfig *oauth2.C
 		authURL := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 		
 		fmt.Println("Please visit the following URL to authorize the application:")
-		fmt.Println(authURL)
+		printWrappedURL(authURL)
 		fmt.Print("Enter the authorization code: ")
 
 		// Read the auth code from the provided reader
