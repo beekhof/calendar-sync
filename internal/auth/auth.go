@@ -2,19 +2,24 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/term"
 )
 
 // TokenStore is an interface for saving and loading OAuth tokens.
 type TokenStore interface {
 	SaveToken(token *oauth2.Token) error
 	LoadToken() (*oauth2.Token, error)
+	DeleteToken() error // Delete/reset the token (for expired tokens)
 }
 
 // autoSaveTokenSource wraps an oauth2.TokenSource and automatically saves refreshed tokens.
@@ -28,6 +33,11 @@ type autoSaveTokenSource struct {
 func (a *autoSaveTokenSource) Token() (*oauth2.Token, error) {
 	token, err := a.source.Token()
 	if err != nil {
+		// Check if this is a token expiration error
+		if isTokenExpiredError(err) {
+			// Return a special error that indicates token expiration
+			return nil, &TokenExpiredError{OriginalError: err}
+		}
 		return nil, err
 	}
 
@@ -41,6 +51,45 @@ func (a *autoSaveTokenSource) Token() (*oauth2.Token, error) {
 	}
 
 	return token, nil
+}
+
+// TokenExpiredError is a special error type that indicates the OAuth token has expired.
+type TokenExpiredError struct {
+	OriginalError error
+}
+
+func (e *TokenExpiredError) Error() string {
+	return fmt.Sprintf("token expired: %v", e.OriginalError)
+}
+
+func (e *TokenExpiredError) Unwrap() error {
+	return e.OriginalError
+}
+
+// isTokenExpiredError checks if an error indicates that the OAuth token has expired.
+// Google OAuth returns "invalid_grant" errors when refresh tokens expire.
+func isTokenExpiredError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	// Check for "invalid_grant" error message (common OAuth2 error for expired tokens)
+	errStr := strings.ToLower(err.Error())
+	if strings.Contains(errStr, "invalid_grant") {
+		return true
+	}
+	
+	// Also check for "token has been expired or revoked" which is another common message
+	if strings.Contains(errStr, "expired") || strings.Contains(errStr, "revoked") {
+		return true
+	}
+	
+	return false
+}
+
+// isInteractive checks if the program is running in an interactive terminal.
+func isInteractive() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
 // startLocalServer starts a local HTTP server to receive the OAuth callback.
@@ -103,6 +152,8 @@ func startLocalServer() (string, <-chan string, <-chan error, error) {
 
 // GetAuthenticatedClient returns an authenticated HTTP client using OAuth 2.0.
 // If no token exists, it will guide the user through the interactive OAuth flow.
+// If a token has expired and we're running interactively, it will automatically
+// reset the token and launch the authentication flow.
 func GetAuthenticatedClient(ctx context.Context, oauthConfig *oauth2.Config, tokenStore TokenStore) (*http.Client, error) {
 	// Attempt to load an existing token
 	token, err := tokenStore.LoadToken()
@@ -112,54 +163,102 @@ func GetAuthenticatedClient(ctx context.Context, oauthConfig *oauth2.Config, tok
 
 	// If token is nil (first run), perform interactive OAuth flow
 	if token == nil {
-		// Start local server to receive callback
-		redirectURL, codeChan, errorChan, err := startLocalServer()
-		if err != nil {
-			return nil, fmt.Errorf("failed to start local server: %w", err)
-		}
-
-		// Update the redirect URL in the config
-		oauthConfig.RedirectURL = redirectURL
-
-		// Generate auth URL
-		authURL := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline, oauth2.ApprovalForce)
-		
-		fmt.Printf("Starting local server on %s\n", redirectURL)
-		if redirectURL != "http://127.0.0.1:8080" {
-			fmt.Printf("Note: Port 8080 was unavailable. Make sure to add %s to your authorized redirect URIs in Google Cloud Console.\n", redirectURL)
-		}
-		fmt.Println("\nPlease visit the following URL to authorize the application:")
-		fmt.Println(authURL)
-		fmt.Println("\nWaiting for authorization...")
-
-		// Wait for the authorization code
-		var code string
-		select {
-		case code = <-codeChan:
-			// Successfully received code
-		case err := <-errorChan:
-			return nil, fmt.Errorf("failed to receive authorization code: %w", err)
-		case <-time.After(5 * time.Minute):
-			return nil, fmt.Errorf("authorization timeout: no response received within 5 minutes")
-		}
-
-		if code == "" {
-			return nil, fmt.Errorf("no authorization code received")
-		}
-
-		// Exchange the code for a token
-		token, err = oauthConfig.Exchange(ctx, code)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exchange authorization code: %w", err)
-		}
-
-		// Save the new token
-		if err := tokenStore.SaveToken(token); err != nil {
-			return nil, fmt.Errorf("failed to save token: %w", err)
-		}
-
-		fmt.Println("Authorization successful!")
+		return performOAuthFlow(ctx, oauthConfig, tokenStore)
 	}
+
+	// Test if the token is still valid by trying to create a token source
+	// This will attempt to refresh if needed, and we can catch expiration errors
+	tokenSource := oauthConfig.TokenSource(ctx, token)
+	
+	// Try to get a token to test if it's valid
+	testToken, err := tokenSource.Token()
+	if err != nil {
+		// Check if this is a token expiration error
+		if isTokenExpiredError(err) {
+			// Token has expired
+			if isInteractive() {
+				// Running interactively - reset token and re-authenticate
+				fmt.Printf("\n⚠️  OAuth token has expired. Resetting token and launching authentication flow...\n\n")
+				
+				// Delete the expired token
+				if deleteErr := tokenStore.DeleteToken(); deleteErr != nil {
+					return nil, fmt.Errorf("failed to delete expired token: %w", deleteErr)
+				}
+				
+				// Perform OAuth flow again
+				return performOAuthFlow(ctx, oauthConfig, tokenStore)
+			} else {
+				// Not interactive - return error
+				return nil, fmt.Errorf("token expired and running in non-interactive mode. Please run manually to re-authenticate: %w", err)
+			}
+		}
+		// Some other error occurred
+		return nil, fmt.Errorf("failed to get token: %w", err)
+	}
+
+	// Token is valid, use it
+	token = testToken
+
+	// Wrap the token source to auto-save refreshed tokens
+	autoSaveSource := &autoSaveTokenSource{
+		source:     oauth2.ReuseTokenSource(token, tokenSource),
+		tokenStore: tokenStore,
+		lastToken:  token,
+	}
+
+	// Return a new HTTP client using the auto-save token source
+	return oauth2.NewClient(ctx, autoSaveSource), nil
+}
+
+// performOAuthFlow performs the interactive OAuth 2.0 flow.
+func performOAuthFlow(ctx context.Context, oauthConfig *oauth2.Config, tokenStore TokenStore) (*http.Client, error) {
+	// Start local server to receive callback
+	redirectURL, codeChan, errorChan, err := startLocalServer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start local server: %w", err)
+	}
+
+	// Update the redirect URL in the config
+	oauthConfig.RedirectURL = redirectURL
+
+	// Generate auth URL
+	authURL := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline, oauth2.ApprovalForce)
+	
+	fmt.Printf("Starting local server on %s\n", redirectURL)
+	if redirectURL != "http://127.0.0.1:8080" {
+		fmt.Printf("Note: Port 8080 was unavailable. Make sure to add %s to your authorized redirect URIs in Google Cloud Console.\n", redirectURL)
+	}
+	fmt.Println("\nPlease visit the following URL to authorize the application:")
+	fmt.Println(authURL)
+	fmt.Println("\nWaiting for authorization...")
+
+	// Wait for the authorization code
+	var code string
+	select {
+	case code = <-codeChan:
+		// Successfully received code
+	case err := <-errorChan:
+		return nil, fmt.Errorf("failed to receive authorization code: %w", err)
+	case <-time.After(5 * time.Minute):
+		return nil, fmt.Errorf("authorization timeout: no response received within 5 minutes")
+	}
+
+	if code == "" {
+		return nil, fmt.Errorf("no authorization code received")
+	}
+
+	// Exchange the code for a token
+	token, err := oauthConfig.Exchange(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange authorization code: %w", err)
+	}
+
+	// Save the new token
+	if err := tokenStore.SaveToken(token); err != nil {
+		return nil, fmt.Errorf("failed to save token: %w", err)
+	}
+
+	fmt.Println("Authorization successful!")
 
 	// Create a token source
 	tokenSource := oauthConfig.TokenSource(ctx, token)

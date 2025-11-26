@@ -24,6 +24,11 @@ func (m *mockTokenStore) LoadToken() (*oauth2.Token, error) {
 	return m.token, nil
 }
 
+func (m *mockTokenStore) DeleteToken() error {
+	m.token = nil
+	return nil
+}
+
 func TestGetAuthenticatedClient_TokenExists(t *testing.T) {
 	ctx := context.Background()
 

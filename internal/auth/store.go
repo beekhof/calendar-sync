@@ -18,6 +18,18 @@ func NewFileTokenStore(path string) *FileTokenStore {
 	return &FileTokenStore{Path: path}
 }
 
+// DeleteToken deletes the token file, effectively resetting the token.
+func (store *FileTokenStore) DeleteToken() error {
+	if err := os.Remove(store.Path); err != nil {
+		if os.IsNotExist(err) {
+			// Token file doesn't exist, which is fine - consider it already deleted
+			return nil
+		}
+		return fmt.Errorf("failed to delete token file: %w", err)
+	}
+	return nil
+}
+
 // SaveToken saves an OAuth token to the file at store.Path.
 func (store *FileTokenStore) SaveToken(token *oauth2.Token) error {
 	data, err := json.Marshal(token)
