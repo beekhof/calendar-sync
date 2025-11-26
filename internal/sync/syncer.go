@@ -10,6 +10,7 @@ import (
 	"time"
 
 	calclient "github.com/beekhof/calendar-sync/internal/calendar"
+	"github.com/beekhof/calendar-sync/internal/auth"
 	"github.com/beekhof/calendar-sync/internal/config"
 	"golang.org/x/term"
 
@@ -283,6 +284,100 @@ func eventsEqual(event1, event2 *calendar.Event, debugLog func(string, ...interf
 	return true, ""
 }
 
+// checkAndCreateTokenReminder checks OAuth token expiration and creates/updates reminder events.
+// This is only applicable for Google Calendar destinations that use OAuth tokens.
+func (s *Syncer) checkAndCreateTokenReminder(ctx context.Context, destCalendarID string) error {
+	// Load the token to check expiration
+	tokenStore := auth.NewFileTokenStore(s.destination.TokenPath)
+	token, err := tokenStore.LoadToken()
+	if err != nil {
+		return fmt.Errorf("failed to load token: %w", err)
+	}
+	if token == nil {
+		// No token yet (first run), skip reminder
+		return nil
+	}
+
+	now := time.Now()
+	
+	// For Google OAuth:
+	// - Access tokens expire in 1 hour (but are auto-refreshed)
+	// - Refresh tokens expire after 6 months of inactivity
+	// Since we're using the token during sync, estimate refresh token expiry as 6 months from now
+	// Create reminder 1 month before estimated expiry (5 months from now)
+	estimatedRefreshTokenExpiry := now.AddDate(0, 6, 0)
+	reminderDate := estimatedRefreshTokenExpiry.AddDate(0, -1, 0) // 1 month before expiry
+	
+	// Only create reminder if it's in the future and within the next 6 months
+	if reminderDate.Before(now) {
+		// Reminder date is in the past, skip
+		return nil
+	}
+	if reminderDate.After(now.AddDate(0, 6, 0)) {
+		// Reminder is too far in the future, skip
+		return nil
+	}
+
+	// Log token expiration info
+	log.Printf("[%s] OAuth grant estimated to expire: %s (reminder set for: %s)", 
+		s.destination.Name, 
+		estimatedRefreshTokenExpiry.Format("2006-01-02"),
+		reminderDate.Format("2006-01-02"))
+
+	// Check if a reminder event already exists
+	reminderWorkID := "TOKEN_REFRESH_REMINDER"
+	existingReminders, err := s.personalClient.FindEventsByWorkID(destCalendarID, reminderWorkID)
+	if err != nil {
+		return fmt.Errorf("failed to find existing reminder events: %w", err)
+	}
+
+	// Create or update the reminder event
+	reminderEvent := &calendar.Event{
+		Summary: "⚠️ Refresh OAuth Token for Calendar Sync",
+		Description: fmt.Sprintf(
+			"Your OAuth token for '%s' is estimated to expire on %s.\n\n"+
+				"To refresh your token:\n"+
+				"1. Run the calendar sync tool manually\n"+
+				"2. You will be prompted to re-authenticate if needed\n"+
+				"3. The token will be automatically refreshed\n\n"+
+				"This reminder will be updated on the next sync.",
+			s.destination.Name,
+			estimatedRefreshTokenExpiry.Format("January 2, 2006"),
+		),
+		Start: &calendar.EventDateTime{
+			DateTime: reminderDate.Format(time.RFC3339),
+		},
+		End: &calendar.EventDateTime{
+			DateTime: reminderDate.Add(1 * time.Hour).Format(time.RFC3339),
+		},
+		Reminders: &calendar.EventReminders{
+			UseDefault: true,
+		},
+		ExtendedProperties: &calendar.EventExtendedProperties{
+			Private: map[string]string{
+				"workEventId": reminderWorkID,
+			},
+		},
+	}
+
+	if len(existingReminders) > 0 {
+		// Update existing reminder
+		existingReminder := existingReminders[0]
+		if err := s.personalClient.UpdateEvent(destCalendarID, existingReminder.Id, reminderEvent); err != nil {
+			return fmt.Errorf("failed to update reminder event: %w", err)
+		}
+		s.debugLog("Updated token refresh reminder event (ID: %s)", existingReminder.Id)
+	} else {
+		// Create new reminder
+		if err := s.personalClient.InsertEvent(destCalendarID, reminderEvent); err != nil {
+			return fmt.Errorf("failed to create reminder event: %w", err)
+		}
+		s.debugLog("Created token refresh reminder event")
+	}
+
+	return nil
+}
+
 // timesEqual compares two EventDateTime values, normalizing timezones for DateTime comparisons.
 // For all-day events (Date field), it compares the date strings directly.
 // For timed events (DateTime field), it parses and compares the times in UTC.
@@ -395,6 +490,14 @@ func (s *Syncer) Sync(ctx context.Context) error {
 	destCalendarID, err := s.personalClient.FindOrCreateCalendarByName(s.destination.CalendarName, s.destination.CalendarColorID)
 	if err != nil {
 		return err
+	}
+
+	// Check token expiration and create reminder events for Google destinations
+	if s.destination.Type == "google" {
+		if err := s.checkAndCreateTokenReminder(ctx, destCalendarID); err != nil {
+			// Log but don't fail the sync if reminder creation fails
+			log.Printf("[%s] Warning: Failed to check/create token refresh reminder: %v", destName, err)
+		}
 	}
 
 	// Check if calendar has manually created events (without workEventId) and prompt for confirmation
