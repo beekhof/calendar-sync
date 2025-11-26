@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	calclient "github.com/beekhof/calendar-sync/internal/calendar"
 	"github.com/beekhof/calendar-sync/internal/auth"
+	calclient "github.com/beekhof/calendar-sync/internal/calendar"
 	"github.com/beekhof/calendar-sync/internal/config"
 	"golang.org/x/term"
 
@@ -299,16 +299,53 @@ func (s *Syncer) checkAndCreateTokenReminder(ctx context.Context, destCalendarID
 	}
 
 	now := time.Now()
-	
-	// For Google OAuth:
-	// - Access tokens expire in 1 hour (but are auto-refreshed)
-	// - Refresh tokens expire after 6 months of inactivity
-	// Since we're using the token during sync, estimate refresh token expiry as 6 months from now
-	// Create reminder 1 month before estimated expiry (5 months from now)
-	estimatedRefreshTokenExpiry := now.AddDate(0, 6, 0)
-	reminderDate := estimatedRefreshTokenExpiry.AddDate(0, -1, 0) // 1 month before expiry
-	
-	// Only create reminder if it's in the future and within the next 6 months
+
+	// Determine when the token was last refreshed by checking the token file's modification time
+	// This gives us a better estimate than assuming 6 months
+	tokenFileInfo, err := os.Stat(s.destination.TokenPath)
+	if err != nil {
+		// Can't determine file modification time, use conservative estimate
+		return fmt.Errorf("failed to stat token file: %w", err)
+	}
+	tokenLastModified := tokenFileInfo.ModTime()
+
+	// For Google OAuth refresh tokens:
+	// - If app is in "Testing" mode: tokens expire after 7 days
+	// - If app is "In production": tokens can last up to 6 months of inactivity
+	// Since we can't determine the app status, we'll use the token file's modification time
+	// and estimate conservatively. If the token was modified recently (within last 7 days),
+	// assume it's a new token and estimate 7 days from modification time.
+	// Otherwise, assume it's a production token and estimate 6 months from modification time.
+	daysSinceModification := int(now.Sub(tokenLastModified).Hours() / 24)
+
+	var estimatedRefreshTokenExpiry time.Time
+	var expiryReason string
+
+	if daysSinceModification < 7 {
+		// Token was recently created/modified - likely in testing mode or newly issued
+		// Estimate 7 days from when it was last modified
+		estimatedRefreshTokenExpiry = tokenLastModified.AddDate(0, 0, 7)
+		expiryReason = "7 days from last refresh (testing mode estimate)"
+	} else {
+		// Token is older - likely in production mode
+		// Estimate 6 months from when it was last modified
+		estimatedRefreshTokenExpiry = tokenLastModified.AddDate(0, 6, 0)
+		expiryReason = "6 months from last refresh (production mode estimate)"
+	}
+
+	// Create reminder 2 days before estimated expiry (or 1 day if expiry is very soon)
+	daysUntilExpiry := int(estimatedRefreshTokenExpiry.Sub(now).Hours() / 24)
+	var reminderDate time.Time
+	if daysUntilExpiry > 2 {
+		reminderDate = estimatedRefreshTokenExpiry.AddDate(0, 0, -2) // 2 days before
+	} else if daysUntilExpiry > 0 {
+		reminderDate = now.AddDate(0, 0, 1) // Tomorrow if expiry is very soon
+	} else {
+		// Token has already expired or expires today - create reminder for today
+		reminderDate = now
+	}
+
+	// Only create reminder if it's in the future and within reasonable timeframe
 	if reminderDate.Before(now) {
 		// Reminder date is in the past, skip
 		return nil
@@ -319,10 +356,11 @@ func (s *Syncer) checkAndCreateTokenReminder(ctx context.Context, destCalendarID
 	}
 
 	// Log token expiration info
-	log.Printf("[%s] OAuth grant estimated to expire: %s (reminder set for: %s)", 
-		s.destination.Name, 
+	log.Printf("[%s] OAuth grant estimated to expire: %s (reminder set for: %s) - %s",
+		s.destination.Name,
 		estimatedRefreshTokenExpiry.Format("2006-01-02"),
-		reminderDate.Format("2006-01-02"))
+		reminderDate.Format("2006-01-02"),
+		expiryReason)
 
 	// Check if a reminder event already exists
 	reminderWorkID := "TOKEN_REFRESH_REMINDER"
@@ -335,14 +373,17 @@ func (s *Syncer) checkAndCreateTokenReminder(ctx context.Context, destCalendarID
 	reminderEvent := &calendar.Event{
 		Summary: "⚠️ Refresh OAuth Token for Calendar Sync",
 		Description: fmt.Sprintf(
-			"Your OAuth token for '%s' is estimated to expire on %s.\n\n"+
+			"Your OAuth token for '%s' is estimated to expire on %s (%s).\n\n"+
 				"To refresh your token:\n"+
 				"1. Run the calendar sync tool manually\n"+
 				"2. You will be prompted to re-authenticate if needed\n"+
 				"3. The token will be automatically refreshed\n\n"+
+				"Note: If your OAuth app is in 'Testing' mode, tokens expire after 7 days.\n"+
+				"Move your app to 'In production' in Google Cloud Console for longer-lived tokens.\n\n"+
 				"This reminder will be updated on the next sync.",
 			s.destination.Name,
 			estimatedRefreshTokenExpiry.Format("January 2, 2006"),
+			expiryReason,
 		),
 		Start: &calendar.EventDateTime{
 			DateTime: reminderDate.Format(time.RFC3339),
