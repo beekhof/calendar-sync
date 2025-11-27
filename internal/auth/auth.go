@@ -23,9 +23,9 @@ type TokenStore interface {
 
 // autoSaveTokenSource wraps an oauth2.TokenSource and automatically saves refreshed tokens.
 type autoSaveTokenSource struct {
-	source    oauth2.TokenSource
+	source     oauth2.TokenSource
 	tokenStore TokenStore
-	lastToken *oauth2.Token
+	lastToken  *oauth2.Token
 }
 
 // Token implements oauth2.TokenSource and saves the token if it was refreshed.
@@ -71,18 +71,18 @@ func isTokenExpiredError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Check for "invalid_grant" error message (common OAuth2 error for expired tokens)
 	errStr := strings.ToLower(err.Error())
 	if strings.Contains(errStr, "invalid_grant") {
 		return true
 	}
-	
+
 	// Also check for "token has been expired or revoked" which is another common message
 	if strings.Contains(errStr, "expired") || strings.Contains(errStr, "revoked") {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -94,7 +94,7 @@ func isInteractive() bool {
 // printWrappedURL prints a URL wrapped to fit terminal width, breaking at query parameter boundaries when possible.
 func printWrappedURL(url string) {
 	const maxWidth = 80
-	
+
 	// Try to get terminal width, fall back to 80 if unavailable
 	width := maxWidth
 	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
@@ -104,13 +104,13 @@ func printWrappedURL(url string) {
 			width -= 2
 		}
 	}
-	
+
 	// If URL fits in one line, just print it
 	if len(url) <= width {
 		fmt.Println(url)
 		return
 	}
-	
+
 	// Break URL at query parameter boundaries (&) when possible
 	// Start with the base URL (everything before the first ?)
 	parts := strings.SplitN(url, "?", 2)
@@ -119,14 +119,14 @@ func printWrappedURL(url string) {
 		printWithLineBreaks(url, width)
 		return
 	}
-	
+
 	baseURL := parts[0] + "?"
 	queryParams := parts[1]
-	
+
 	// Print base URL
 	fmt.Print(baseURL)
 	currentLineLen := len(baseURL)
-	
+
 	// Split query parameters by &
 	params := strings.Split(queryParams, "&")
 	for i, param := range params {
@@ -135,7 +135,7 @@ func printWrappedURL(url string) {
 		if i > 0 {
 			sep = "&"
 		}
-		
+
 		// Check if this param fits on current line
 		neededLen := len(sep) + len(param)
 		if currentLineLen > 0 && currentLineLen+neededLen > width {
@@ -143,15 +143,17 @@ func printWrappedURL(url string) {
 			fmt.Println()
 			fmt.Print("  ") // Indent continuation lines
 			currentLineLen = 2
+			fmt.Print(sep)
+			currentLineLen += len(sep)
 		} else if i > 0 {
 			fmt.Print(sep)
 			currentLineLen += len(sep)
 		}
-		
+
 		fmt.Print(param)
 		currentLineLen += len(param)
 	}
-	
+
 	fmt.Println()
 }
 
@@ -243,7 +245,7 @@ func GetAuthenticatedClient(ctx context.Context, oauthConfig *oauth2.Config, tok
 	// Test if the token is still valid by trying to create a token source
 	// This will attempt to refresh if needed, and we can catch expiration errors
 	tokenSource := oauthConfig.TokenSource(ctx, token)
-	
+
 	// Try to get a token to test if it's valid
 	testToken, err := tokenSource.Token()
 	if err != nil {
@@ -253,12 +255,12 @@ func GetAuthenticatedClient(ctx context.Context, oauthConfig *oauth2.Config, tok
 			if isInteractive() {
 				// Running interactively - reset token and re-authenticate
 				fmt.Printf("\n⚠️  OAuth token has expired. Resetting token and launching authentication flow...\n\n")
-				
+
 				// Delete the expired token
 				if deleteErr := tokenStore.DeleteToken(); deleteErr != nil {
 					return nil, fmt.Errorf("failed to delete expired token: %w", deleteErr)
 				}
-				
+
 				// Perform OAuth flow again
 				return performOAuthFlow(ctx, oauthConfig, tokenStore)
 			} else {
@@ -297,7 +299,7 @@ func performOAuthFlow(ctx context.Context, oauthConfig *oauth2.Config, tokenStor
 
 	// Generate auth URL
 	authURL := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline, oauth2.ApprovalForce)
-	
+
 	fmt.Printf("Starting local server on %s\n", redirectURL)
 	if redirectURL != "http://127.0.0.1:8080" {
 		fmt.Printf("Note: Port 8080 was unavailable. Make sure to add %s to your authorized redirect URIs in Google Cloud Console.\n", redirectURL)
@@ -361,7 +363,7 @@ func GetAuthenticatedClientWithReader(ctx context.Context, oauthConfig *oauth2.C
 	if token == nil {
 		// Generate auth URL
 		authURL := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-		
+
 		fmt.Println("Please visit the following URL to authorize the application:")
 		printWrappedURL(authURL)
 		fmt.Print("Enter the authorization code: ")
@@ -397,4 +399,3 @@ func GetAuthenticatedClientWithReader(ctx context.Context, oauthConfig *oauth2.C
 	// Return a new HTTP client using the auto-save token source
 	return oauth2.NewClient(ctx, autoSaveSource), nil
 }
-
