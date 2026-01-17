@@ -53,6 +53,24 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 	var filtered []*calendar.Event
 
 	for _, event := range events {
+
+		// skip cancelled events
+		if event.Status == "cancelled" {
+			continue
+		}
+		// skip declined events
+		if s.config != nil && s.config.WorkEmail != "" {
+			skip := false
+			for _, attendee := range event.Attendees {
+				if attendee.Email == s.config.WorkEmail && attendee.ResponseStatus == "declined" {
+					skip = true
+				}
+			}
+			if skip {
+				continue
+			}
+		}
+
 		// Rule 1: Handle all-day events
 		if event.Start.Date != "" {
 			// Skip all-day events that indicate work location
