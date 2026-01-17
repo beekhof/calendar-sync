@@ -36,6 +36,8 @@ OPTIONS:
                                   (overrides config file and WORK_TOKEN_PATH env var)
     --google-credentials-path PATH Path to Google OAuth credentials JSON file
                                   (overrides config file and GOOGLE_CREDENTIALS_PATH env var)
+    --include-ooo BOOL            Enable sync of Out of Office events, defaults to false
+                                  (overrides config file and INCLUDE_OOO env var)
 
 CONFIGURATION PRECEDENCE (highest to lowest):
     1. Command-line flags (only --work-token-path and --google-credentials-path)
@@ -51,6 +53,7 @@ CONFIG FILE:
       "google_credentials_path": "/path/to/credentials.json",
       "sync_window_weeks": 2,
       "sync_window_weeks_past": 0,
+      "include_ooo": false,
       "destinations": [
         {
           "name": "Personal Google",
@@ -84,7 +87,8 @@ ENVIRONMENT VARIABLES:
         GOOGLE_CREDENTIALS_PATH   Path to Google OAuth credentials JSON file
         SYNC_WINDOW_WEEKS         Number of weeks to sync forward from start of current week (default: 2)
         SYNC_WINDOW_WEEKS_PAST    Number of weeks to sync backward from start of current week (default: 0)
-    
+        INCLUDE_OOO               Enable sync of Out of Office events, defaults to false
+
     Note: Destination configuration must be specified in the config file.
 
 DESCRIPTION:
@@ -153,8 +157,9 @@ func main() {
 	destinationName := flag.String("destination", "", "Sync only to the named destination (optional)")
 	workTokenPath := flag.String("work-token-path", "", "Path to store the work account OAuth token (overrides config file and WORK_TOKEN_PATH env var)")
 	googleCredentialsPath := flag.String("google-credentials-path", "", "Path to Google OAuth credentials JSON file (overrides config file and GOOGLE_CREDENTIALS_PATH env var)")
+	includeOOO := flag.Bool("include-ooo", false, "Enable sync of Out of Office events, defaults to false (overrides config file and INCLUDE_OOO env var)")
 	flag.Parse()
-	
+
 	verbose := *verboseFlag || *verboseFlagShort
 
 	// Show help if requested
@@ -172,7 +177,7 @@ func main() {
 	if *configFile == "" {
 		log.Fatalf("--config FILE is required. Use --help for more information.")
 	}
-	cfg, err := config.LoadConfig(*configFile, *workTokenPath, *googleCredentialsPath)
+	cfg, err := config.LoadConfig(*configFile, *workTokenPath, *googleCredentialsPath, *includeOOO)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}

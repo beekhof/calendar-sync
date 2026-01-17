@@ -13,7 +13,7 @@ import (
 
 // mockGoogleCalendarClient is a mock implementation of CalendarClient for testing.
 type mockGoogleCalendarClient struct {
-	calendars        map[string]string // name -> id
+	calendars       map[string]string            // name -> id
 	events          map[string][]*calendar.Event // calendarID -> events
 	insertedEvents  []*calendar.Event
 	updatedEvents   []*calendar.Event
@@ -23,9 +23,9 @@ type mockGoogleCalendarClient struct {
 func newMockGoogleCalendarClient() *mockGoogleCalendarClient {
 	return &mockGoogleCalendarClient{
 		calendars:       make(map[string]string),
-		events:         make(map[string][]*calendar.Event),
-		insertedEvents: []*calendar.Event{},
-		updatedEvents:  []*calendar.Event{},
+		events:          make(map[string][]*calendar.Event),
+		insertedEvents:  []*calendar.Event{},
+		updatedEvents:   []*calendar.Event{},
 		deletedEventIDs: []string{},
 	}
 }
@@ -123,7 +123,7 @@ func TestFilterEvents_TimedOOF(t *testing.T) {
 		workClient:  mockClient,
 		destination: dest,
 	}
-	
+
 	// Create a timed OOF event using EventType (most reliable method)
 	oofEvent := &calendar.Event{
 		Id:        "oof-1",
@@ -145,6 +145,36 @@ func TestFilterEvents_TimedOOF(t *testing.T) {
 	}
 }
 
+func TestFilterEvents_IncludeOOF(t *testing.T) {
+	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
+	syncer := &Syncer{
+		workClient:  mockClient,
+		destination: dest,
+		config:      &config.Config{IncludeOOO: true},
+	}
+
+	// Create a timed OOF event using EventType (most reliable method)
+	oofEvent := &calendar.Event{
+		Id:        "oof-1",
+		Summary:   "Out of Office",
+		EventType: "outOfOffice",
+		Start: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 14, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		End: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 15, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+	}
+
+	events := []*calendar.Event{oofEvent}
+	filtered := syncer.filterEvents(events)
+
+	if len(filtered) != 1 {
+		t.Errorf("Expected timed OOF event to NOT be filtered out, but got %d events", len(filtered))
+	}
+}
+
 func TestFilterEvents_TimedOOF_TransparencyFallback(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
 	dest := &config.Destination{Name: "Test"}
@@ -152,7 +182,7 @@ func TestFilterEvents_TimedOOF_TransparencyFallback(t *testing.T) {
 		workClient:  mockClient,
 		destination: dest,
 	}
-	
+
 	// Create a timed OOF event using Transparency (fallback method)
 	// This tests backward compatibility with older events
 	oofEvent := &calendar.Event{
@@ -182,7 +212,7 @@ func TestFilterEvents_AllDayOOF(t *testing.T) {
 		workClient:  mockClient,
 		destination: dest,
 	}
-	
+
 	// Create an all-day OOF event
 	allDayOOF := &calendar.Event{
 		Id:      "oof-2",
@@ -211,7 +241,7 @@ func TestFilterEvents_WorkLocation(t *testing.T) {
 		workClient:  mockClient,
 		destination: dest,
 	}
-	
+
 	// Create work location events (should be filtered out)
 	workLocationEvents := []*calendar.Event{
 		{
@@ -260,7 +290,7 @@ func TestFilterEvents_OutsideWindow(t *testing.T) {
 		workClient:  mockClient,
 		destination: dest,
 	}
-	
+
 	// Create an event at 5:00 AM - 5:30 AM (entirely outside window)
 	earlyEvent := &calendar.Event{
 		Id:      "early-1",
@@ -288,7 +318,7 @@ func TestFilterEvents_PartialOverlap(t *testing.T) {
 		workClient:  mockClient,
 		destination: dest,
 	}
-	
+
 	// Create an event at 5:30 AM - 6:30 AM (partially overlaps window)
 	overlapEvent := &calendar.Event{
 		Id:      "overlap-1",
@@ -312,7 +342,7 @@ func TestFilterEvents_PartialOverlap(t *testing.T) {
 func TestSync_NewEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
-	
+
 	cfg := &config.Config{
 		SyncWindowWeeks: 2,
 	}
@@ -360,7 +390,7 @@ func TestSync_NewEvent(t *testing.T) {
 func TestSync_DeletedEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
-	
+
 	cfg := &config.Config{
 		SyncWindowWeeks: 2,
 	}
@@ -391,7 +421,7 @@ func TestSync_DeletedEvent(t *testing.T) {
 		},
 	}
 	personalClient.events[destCalendarID] = []*calendar.Event{staleEvent}
-	
+
 	// Work calendar has no events
 	workClient.events["primary"] = []*calendar.Event{}
 
@@ -414,7 +444,7 @@ func TestSync_DeletedEvent(t *testing.T) {
 func TestSync_UnchangedEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
-	
+
 	cfg := &config.Config{
 		SyncWindowWeeks: 2,
 	}
@@ -473,7 +503,7 @@ func TestSync_UnchangedEvent(t *testing.T) {
 func TestSync_ChangedEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
-	
+
 	cfg := &config.Config{
 		SyncWindowWeeks: 2,
 	}
@@ -533,4 +563,3 @@ func TestSync_ChangedEvent(t *testing.T) {
 		t.Errorf("Expected updated event summary to be 'Work Meeting Updated', got '%s'", updated.Summary)
 	}
 }
-
