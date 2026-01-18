@@ -27,8 +27,9 @@ func loadTestConfig(t *testing.T) *config.Config {
 
 	// Load the config with environment variable overrides
 	loadedConfig, err := config.LoadConfig(
-		"../../config.json", // config file path
+		"../../config.json",   // config file path
 		cfgData.WorkTokenPath, // work token path override
+		cfgData.WorkEmail,
 		cfgData.GoogleCredentialsPath, // google credentials path override
 	)
 	if err != nil {
