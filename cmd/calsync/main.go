@@ -34,12 +34,14 @@ OPTIONS:
                                   If not specified, syncs to all destinations
     --work-token-path PATH        Path to store the work account OAuth token
                                   (overrides config file and WORK_TOKEN_PATH env var)
+    --work-email EMAIL            Email of the work account, needed for checking if event was declined
+                                  (overrides config file and WORK_EMAIL env var)
     --google-credentials-path PATH Path to Google OAuth credentials JSON file
                                   (overrides config file and GOOGLE_CREDENTIALS_PATH env var)
 
 CONFIGURATION PRECEDENCE (highest to lowest):
-    1. Command-line flags (only --work-token-path and --google-credentials-path)
-    2. Environment variables (WORK_TOKEN_PATH, GOOGLE_CREDENTIALS_PATH, SYNC_WINDOW_WEEKS, SYNC_WINDOW_WEEKS_PAST)
+    1. Command-line flags
+    2. Environment variables (WORK_TOKEN_PATH, WORK_EMAIL, GOOGLE_CREDENTIALS_PATH, SYNC_WINDOW_WEEKS, SYNC_WINDOW_WEEKS_PAST)
     3. Config file (--config)
     4. Defaults
 
@@ -48,6 +50,7 @@ CONFIG FILE:
     is required and must contain at least one destination. Example:
     {
       "work_token_path": "/path/to/work_token.json",
+      "work_email": "",
       "google_credentials_path": "/path/to/credentials.json",
       "sync_window_weeks": 2,
       "sync_window_weeks_past": 0,
@@ -80,7 +83,8 @@ CONFIG FILE:
 
 ENVIRONMENT VARIABLES:
     Some settings can be provided via environment variables:
-        WORK_TOKEN_PATH          Path to store the work account OAuth token
+        WORK_TOKEN_PATH           Path to store the work account OAuth token
+        WORK_EMAIL                Email of the work account, needed for checking if event was declined
         GOOGLE_CREDENTIALS_PATH   Path to Google OAuth credentials JSON file
         SYNC_WINDOW_WEEKS         Number of weeks to sync forward from start of current week (default: 2)
         SYNC_WINDOW_WEEKS_PAST    Number of weeks to sync backward from start of current week (default: 0)
@@ -93,7 +97,7 @@ DESCRIPTION:
     separate "Work Sync" calendar in each destination account and populates it with
     filtered events from your work calendar.
 
-    ⚠️  IMPORTANT WARNING: The work calendar is the source of truth. This tool will:
+    IMPORTANT WARNING: The work calendar is the source of truth. This tool will:
     - DELETE any manually created events in the destination calendar
     - DELETE any events that were previously synced but no longer exist in the work calendar
     - OVERWRITE any manual changes made to synced events
@@ -152,9 +156,10 @@ func main() {
 	configFile := flag.String("config", "", "Path to JSON config file (required)")
 	destinationName := flag.String("destination", "", "Sync only to the named destination (optional)")
 	workTokenPath := flag.String("work-token-path", "", "Path to store the work account OAuth token (overrides config file and WORK_TOKEN_PATH env var)")
+	workEmail := flag.String("work-email", "", "Email of the work account, needed for checking if event was declined (overrides config file and WORK_TOKEN_PATH env var)")
 	googleCredentialsPath := flag.String("google-credentials-path", "", "Path to Google OAuth credentials JSON file (overrides config file and GOOGLE_CREDENTIALS_PATH env var)")
 	flag.Parse()
-	
+
 	verbose := *verboseFlag || *verboseFlagShort
 
 	// Show help if requested
@@ -172,9 +177,13 @@ func main() {
 	if *configFile == "" {
 		log.Fatalf("--config FILE is required. Use --help for more information.")
 	}
-	cfg, err := config.LoadConfig(*configFile, *workTokenPath, *googleCredentialsPath)
+	cfg, err := config.LoadConfig(*configFile, *workTokenPath, *workEmail, *googleCredentialsPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.WorkEmail == "" {
+		log.Printf("WARNING: work email not configured, won't be able to check if event was declined")
 	}
 
 	// Work calendar is always Google Calendar (source)
