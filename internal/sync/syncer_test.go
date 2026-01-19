@@ -339,6 +339,34 @@ func TestFilterEvents_PartialOverlap(t *testing.T) {
 	}
 }
 
+func TestFilterEvents_ExactEndtime(t *testing.T) {
+	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
+	syncer := &Syncer{
+		workClient:  mockClient,
+		destination: dest,
+	}
+
+	// Create an event at 5:30 AM - 0:00 AM next day
+	overlapEvent := &calendar.Event{
+		Id:      "overlap-1",
+		Summary: "Overlap Meeting",
+		Start: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 5, 30, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		End: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 16, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+	}
+
+	events := []*calendar.Event{overlapEvent}
+	filtered := syncer.filterEvents(events)
+
+	if len(filtered) != 1 {
+		t.Errorf("Expected event with exact end window to be kept, but got %d events", len(filtered))
+	}
+}
+
 func TestFilterEvents_CancelledAndDeclined(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
 	dest := &config.Destination{Name: "Test"}

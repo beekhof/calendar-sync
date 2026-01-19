@@ -97,28 +97,18 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 			continue
 		}
 
-		// Get the local time components
-		startHour := startTime.Hour()
-		startMinute := startTime.Minute()
-		endHour := endTime.Hour()
-		endMinute := endTime.Minute()
-
-		// Convert to minutes since midnight for easier comparison
-		startMinutes := startHour*60 + startMinute
-		endMinutes := endHour*60 + endMinute
-
-		// Window: 6:00 AM (360 minutes) to 12:00 AM (1440 minutes, which is midnight of next day)
-		windowStart := 6 * 60 // 6:00 AM
-		windowEnd := 24 * 60  // 12:00 AM (midnight)
+		// Window: 6:00 AM to 12:00 AM (midnight of next day)
+		windowStart := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 6, 0, 0, 0, startTime.Location())
+		windowEnd := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 24, 0, 0, 0, startTime.Location())
 
 		// Check if event overlaps with the window
 		// Event overlaps if:
 		// - Start is within window, OR
 		// - End is within window, OR
 		// - Event spans the entire window
-		overlaps := (startMinutes >= windowStart && startMinutes < windowEnd) ||
-			(endMinutes > windowStart && endMinutes <= windowEnd) ||
-			(startMinutes < windowStart && endMinutes > windowEnd)
+		overlaps := ((startTime.Equal(windowStart) || startTime.After(windowStart)) && startTime.Before(windowEnd)) ||
+			(endTime.After(windowStart) && (endTime.Before(windowEnd) || endTime.Equal(windowEnd))) ||
+			(startTime.Before(windowStart) && endTime.After(windowEnd))
 
 		if overlaps {
 			filtered = append(filtered, event)
