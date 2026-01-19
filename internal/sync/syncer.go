@@ -79,7 +79,7 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 
 		// Rule 2: Skip timed OOF events
 		// For recurring event instances, check the parent event's transparency
-		if isOutOfOffice(event, s.workClient) {
+		if (s.config == nil || !s.config.IncludeOOO) && isOutOfOffice(event, s.workClient) {
 			continue
 		}
 

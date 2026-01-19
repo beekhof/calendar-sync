@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 )
 
 // GoogleCredentials represents the structure of Google OAuth credentials JSON file.
@@ -60,6 +61,7 @@ type Config struct {
 	WorkTokenPath         string        `json:"work_token_path,omitempty"`
 	WorkEmail             string        `json:"work_email,omitempty"`
 	GoogleCredentialsPath string        `json:"google_credentials_path,omitempty"`
+	IncludeOOO            bool          `json:"include_ooo,omitempty"`
 	Destinations          []Destination `json:"destinations"` // Array of destination configurations (required)
 
 	// Sync window configuration
@@ -88,7 +90,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 // 3. Config file
 // 4. Defaults
 // Returns an error if any required value is missing.
-func LoadConfig(configFile string, workTokenPathFlag, workEmailFlag, googleCredentialsPathFlag string) (*Config, error) {
+func LoadConfig(configFile string, workTokenPathFlag, workEmailFlag, googleCredentialsPathFlag string, includeOOOFlag bool) (*Config, error) {
 	var config Config
 
 	// Step 1: Load from config file if provided
@@ -111,6 +113,15 @@ func LoadConfig(configFile string, workTokenPathFlag, workEmailFlag, googleCrede
 	if googleCredentialsPath := os.Getenv("GOOGLE_CREDENTIALS_PATH"); googleCredentialsPath != "" {
 		config.GoogleCredentialsPath = googleCredentialsPath
 	}
+	// OOO events
+	if includeOOO := os.Getenv("INCLUDE_OOO"); includeOOO != "" {
+		if includeOOOBool, err := strconv.ParseBool(includeOOO); err != nil {
+			return nil, fmt.Errorf("invalid INCLUDE_OOO value: %w", err)
+		} else {
+			config.IncludeOOO = includeOOOBool
+		}
+	}
+
 	// Sync window weeks from environment variable
 	if syncWindowWeeks := os.Getenv("SYNC_WINDOW_WEEKS"); syncWindowWeeks != "" {
 		var err error
@@ -135,6 +146,9 @@ func LoadConfig(configFile string, workTokenPathFlag, workEmailFlag, googleCrede
 	}
 	if googleCredentialsPathFlag != "" {
 		config.GoogleCredentialsPath = googleCredentialsPathFlag
+	}
+	if includeOOOFlag {
+		config.IncludeOOO = includeOOOFlag
 	}
 
 	// Step 4: Apply defaults and validate required fields

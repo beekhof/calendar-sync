@@ -145,6 +145,36 @@ func TestFilterEvents_TimedOOF(t *testing.T) {
 	}
 }
 
+func TestFilterEvents_IncludeOOF(t *testing.T) {
+	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
+	syncer := &Syncer{
+		workClient:  mockClient,
+		destination: dest,
+		config:      &config.Config{IncludeOOO: true},
+	}
+
+	// Create a timed OOF event using EventType (most reliable method)
+	oofEvent := &calendar.Event{
+		Id:        "oof-1",
+		Summary:   "Out of Office",
+		EventType: "outOfOffice",
+		Start: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 14, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		End: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 15, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+	}
+
+	events := []*calendar.Event{oofEvent}
+	filtered := syncer.filterEvents(events)
+
+	if len(filtered) != 1 {
+		t.Errorf("Expected timed OOF event to NOT be filtered out, but got %d events", len(filtered))
+	}
+}
+
 func TestFilterEvents_TimedOOF_TransparencyFallback(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
 	dest := &config.Destination{Name: "Test"}
