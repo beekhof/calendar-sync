@@ -53,13 +53,26 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 	var filtered []*calendar.Event
 
 	for _, event := range events {
-		// Rule 1: Handle all-day events
-		if event.Start.Date != "" {
-			// Skip all-day events that indicate work location
-			if isWorkLocationEvent(event) {
+
+		// skip cancelled events
+		if event.Status == "cancelled" {
+			continue
+		}
+		// skip declined events
+		if s.config != nil && s.config.WorkEmail != "" {
+			skip := false
+			for _, attendee := range event.Attendees {
+				if attendee.Email == s.config.WorkEmail && attendee.ResponseStatus == "declined" {
+					skip = true
+				}
+			}
+			if skip {
 				continue
 			}
-			// Keep all other all-day events (including OOF)
+		}
+
+		// Rule 1: Handle all-day events
+		if event.Start.Date != "" {
 			filtered = append(filtered, event)
 			continue
 		}
@@ -113,52 +126,6 @@ func (s *Syncer) filterEvents(events []*calendar.Event) []*calendar.Event {
 	}
 
 	return filtered
-}
-
-// isWorkLocationEvent checks if an all-day event indicates work location.
-// Google Calendar uses all-day events to indicate work location (e.g., "Remote", "Office").
-// This excludes OOF events which may also contain "office" in the summary.
-func isWorkLocationEvent(event *calendar.Event) bool {
-	if event.Start == nil || event.Start.Date == "" {
-		// Not an all-day event
-		return false
-	}
-
-	summary := strings.ToLower(event.Summary)
-	if summary == "" {
-		return false
-	}
-
-	// Exclude OOF events - they should not be filtered as work location
-	if strings.Contains(summary, "out of office") || strings.Contains(summary, "oof") {
-		return false
-	}
-
-	// Common patterns for work location events
-	// These are more specific patterns that indicate work location, not OOF
-	locationPatterns := []string{
-		"remote",
-		"working from",
-		"work from home",
-		"work from office",
-		"wfh", // work from home
-		"wfo", // work from office
-		"work location",
-	}
-
-	// Check for "office" only if it's not part of "out of office"
-	if strings.Contains(summary, "office") && !strings.Contains(summary, "out of") {
-		return true
-	}
-
-	// Check other location patterns
-	for _, pattern := range locationPatterns {
-		if strings.Contains(summary, pattern) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // isOutOfOffice checks if an event is marked as "Out of Office".

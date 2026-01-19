@@ -59,6 +59,7 @@ type Destination struct {
 // Config holds the configuration for the calendar sync tool.
 type Config struct {
 	WorkTokenPath         string        `json:"work_token_path,omitempty"`
+	WorkEmail             string        `json:"work_email,omitempty"`
 	GoogleCredentialsPath string        `json:"google_credentials_path,omitempty"`
 	IncludeOOO            bool          `json:"include_ooo,omitempty"`
 	Destinations          []Destination `json:"destinations"` // Array of destination configurations (required)
@@ -89,7 +90,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 // 3. Config file
 // 4. Defaults
 // Returns an error if any required value is missing.
-func LoadConfig(configFile string, workTokenPathFlag, googleCredentialsPathFlag string, includeOOOFlag bool) (*Config, error) {
+func LoadConfig(configFile string, workTokenPathFlag, workEmailFlag, googleCredentialsPathFlag string, includeOOOFlag bool) (*Config, error) {
 	var config Config
 
 	// Step 1: Load from config file if provided
@@ -104,6 +105,9 @@ func LoadConfig(configFile string, workTokenPathFlag, googleCredentialsPathFlag 
 	// Step 2: Override with environment variables
 	if workTokenPath := os.Getenv("WORK_TOKEN_PATH"); workTokenPath != "" {
 		config.WorkTokenPath = workTokenPath
+	}
+	if workEmail := os.Getenv("WORK_EMAIL"); workEmail != "" {
+		config.WorkEmail = workEmail
 	}
 	// Credentials path can be overridden by environment variable
 	if googleCredentialsPath := os.Getenv("GOOGLE_CREDENTIALS_PATH"); googleCredentialsPath != "" {
@@ -136,6 +140,9 @@ func LoadConfig(configFile string, workTokenPathFlag, googleCredentialsPathFlag 
 	// Step 3: Override with command-line flags (highest priority)
 	if workTokenPathFlag != "" {
 		config.WorkTokenPath = workTokenPathFlag
+	}
+	if workEmailFlag != "" {
+		config.WorkEmail = workEmailFlag
 	}
 	if googleCredentialsPathFlag != "" {
 		config.GoogleCredentialsPath = googleCredentialsPathFlag

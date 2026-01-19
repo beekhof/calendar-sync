@@ -339,6 +339,72 @@ func TestFilterEvents_PartialOverlap(t *testing.T) {
 	}
 }
 
+func TestFilterEvents_CancelledAndDeclined(t *testing.T) {
+	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
+	workEmail := "user@example.com"
+	syncer := &Syncer{
+		workClient:  mockClient,
+		destination: dest,
+		config: &config.Config{
+			WorkEmail: workEmail,
+		},
+	}
+
+	events := []*calendar.Event{
+		{
+			Id:      "1",
+			Summary: "this is cancelled",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-15",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-16",
+			},
+			Status: "cancelled",
+		},
+		{
+			Id:      "2",
+			Summary: "this is declined",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-16",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-17",
+			},
+			Attendees: []*calendar.EventAttendee{
+				{
+					Email:          workEmail,
+					ResponseStatus: "declined",
+				},
+			},
+		},
+		{
+			Id:      "3",
+			Summary: "cross check, this is ok",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-17",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-18",
+			},
+			Status: "confirmed",
+			Attendees: []*calendar.EventAttendee{
+				{
+					Email:          workEmail,
+					ResponseStatus: "accepted",
+				},
+			},
+		},
+	}
+
+	filtered := syncer.filterEvents(events)
+
+	if len(filtered) != 1 || filtered[0].Id != "3" {
+		t.Errorf("Expected only cancelled and declined to be filtered out, but got %d events", len(filtered))
+	}
+}
+
 func TestSync_NewEvent(t *testing.T) {
 	workClient := newMockGoogleCalendarClient()
 	personalClient := newMockGoogleCalendarClient()
