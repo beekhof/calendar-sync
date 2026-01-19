@@ -145,6 +145,36 @@ func TestFilterEvents_TimedOOF(t *testing.T) {
 	}
 }
 
+func TestFilterEvents_IncludeOOF(t *testing.T) {
+	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
+	syncer := &Syncer{
+		workClient:  mockClient,
+		destination: dest,
+		config:      &config.Config{IncludeOOO: true},
+	}
+
+	// Create a timed OOF event using EventType (most reliable method)
+	oofEvent := &calendar.Event{
+		Id:        "oof-1",
+		Summary:   "Out of Office",
+		EventType: "outOfOffice",
+		Start: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 14, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		End: &calendar.EventDateTime{
+			DateTime: time.Date(2024, 1, 15, 15, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+	}
+
+	events := []*calendar.Event{oofEvent}
+	filtered := syncer.filterEvents(events)
+
+	if len(filtered) != 1 {
+		t.Errorf("Expected timed OOF event to NOT be filtered out, but got %d events", len(filtered))
+	}
+}
+
 func TestFilterEvents_TimedOOF_TransparencyFallback(t *testing.T) {
 	mockClient := newMockGoogleCalendarClient()
 	dest := &config.Destination{Name: "Test"}
@@ -334,6 +364,72 @@ func TestFilterEvents_ExactEndtime(t *testing.T) {
 
 	if len(filtered) != 1 {
 		t.Errorf("Expected event with exact end window to be kept, but got %d events", len(filtered))
+	}
+}
+
+func TestFilterEvents_CancelledAndDeclined(t *testing.T) {
+	mockClient := newMockGoogleCalendarClient()
+	dest := &config.Destination{Name: "Test"}
+	workEmail := "user@example.com"
+	syncer := &Syncer{
+		workClient:  mockClient,
+		destination: dest,
+		config: &config.Config{
+			WorkEmail: workEmail,
+		},
+	}
+
+	events := []*calendar.Event{
+		{
+			Id:      "1",
+			Summary: "this is cancelled",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-15",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-16",
+			},
+			Status: "cancelled",
+		},
+		{
+			Id:      "2",
+			Summary: "this is declined",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-16",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-17",
+			},
+			Attendees: []*calendar.EventAttendee{
+				{
+					Email:          workEmail,
+					ResponseStatus: "declined",
+				},
+			},
+		},
+		{
+			Id:      "3",
+			Summary: "cross check, this is ok",
+			Start: &calendar.EventDateTime{
+				Date: "2024-01-17",
+			},
+			End: &calendar.EventDateTime{
+				Date: "2024-01-18",
+			},
+			Status: "confirmed",
+			Attendees: []*calendar.EventAttendee{
+				{
+					Email:          workEmail,
+					ResponseStatus: "accepted",
+				},
+			},
+		},
+	}
+
+	filtered := syncer.filterEvents(events)
+
+	if len(filtered) != 1 || filtered[0].Id != "3" {
+		t.Errorf("Expected only cancelled and declined to be filtered out, but got %d events", len(filtered))
 	}
 }
 

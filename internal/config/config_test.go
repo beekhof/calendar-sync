@@ -10,7 +10,7 @@ func TestLoadConfig(t *testing.T) {
 	// Create a temporary config file with destinations
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.json")
-	
+
 	configJSON := `{
 		"work_token_path": "/tmp/work_token.json",
 		"google_credentials_path": "/tmp/credentials.json",
@@ -24,13 +24,13 @@ func TestLoadConfig(t *testing.T) {
 			}
 		]
 	}`
-	
+
 	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	// Test loading from config file
-	config, err := LoadConfig(configPath, "", "")
+	config, err := LoadConfig(configPath, "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestLoadConfig_CommandLineFlags(t *testing.T) {
 	// Create a temporary config file
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.json")
-	
+
 	configJSON := `{
 		"work_token_path": "/config/work_token.json",
 		"google_credentials_path": "/config/credentials.json",
@@ -73,13 +73,13 @@ func TestLoadConfig_CommandLineFlags(t *testing.T) {
 			}
 		]
 	}`
-	
+
 	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	// Test that command-line flags override config file
-	config, err := LoadConfig(configPath, "/flag/work_token.json", "/flag/credentials.json")
+	config, err := LoadConfig(configPath, "/flag/work_token.json", "", "/flag/credentials.json")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	// Create a temporary config file without calendar name/color
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.json")
-	
+
 	configJSON := `{
 		"work_token_path": "/tmp/work_token.json",
 		"google_credentials_path": "/tmp/credentials.json",
@@ -109,13 +109,13 @@ func TestLoadConfig_Defaults(t *testing.T) {
 			}
 		]
 	}`
-	
+
 	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	// Test that defaults are used when calendar name/color are not specified
-	config, err := LoadConfig(configPath, "", "")
+	config, err := LoadConfig(configPath, "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestLoadConfig_ConfigFile(t *testing.T) {
 	// Create a temporary config file
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.json")
-	
+
 	configJSON := `{
 		"work_token_path": "/config/work_token.json",
 		"google_credentials_path": "/config/credentials.json",
@@ -152,13 +152,13 @@ func TestLoadConfig_ConfigFile(t *testing.T) {
 			}
 		]
 	}`
-	
+
 	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	// Load config from file
-	config, err := LoadConfig(configPath, "", "")
+	config, err := LoadConfig(configPath, "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestLoadConfig_EnvVarsOverrideConfigFile(t *testing.T) {
 	// Create a temporary config file
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.json")
-	
+
 	configJSON := `{
 		"work_token_path": "/config/work_token.json",
 		"google_credentials_path": "/config/credentials.json",
@@ -205,7 +205,7 @@ func TestLoadConfig_EnvVarsOverrideConfigFile(t *testing.T) {
 			}
 		]
 	}`
-	
+
 	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestLoadConfig_EnvVarsOverrideConfigFile(t *testing.T) {
 	t.Setenv("GOOGLE_CREDENTIALS_PATH", "/env/credentials.json")
 
 	// Load config - env var should override config file
-	config, err := LoadConfig(configPath, "", "")
+	config, err := LoadConfig(configPath, "", "", "")
 	if err != nil {
 		t.Fatalf("LoadConfig() returned an error: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestLoadConfigMissing(t *testing.T) {
 	os.Clearenv()
 
 	// Try to load config without a config file (config file is required)
-	config, err := LoadConfig("", "", "")
+	config, err := LoadConfig("", "", "", "")
 	if err == nil {
 		t.Error("LoadConfig() should have returned an error when config file is missing")
 	}
@@ -248,18 +248,18 @@ func TestLoadConfigMissingDestinations(t *testing.T) {
 	// Create a temporary config file without destinations
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.json")
-	
+
 	configJSON := `{
 		"work_token_path": "/tmp/work_token.json",
 		"google_credentials_path": "/tmp/credentials.json"
 	}`
-	
+
 	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	// Try to load config without destinations array
-	config, err := LoadConfig(configPath, "", "")
+	config, err := LoadConfig(configPath, "", "", "")
 	if err == nil {
 		t.Error("LoadConfig() should have returned an error when destinations array is missing")
 	}
@@ -272,14 +272,14 @@ func TestLoadGoogleCredentials_Installed(t *testing.T) {
 	// Create a temporary credentials file with "installed" format
 	tempDir := t.TempDir()
 	credsPath := filepath.Join(tempDir, "credentials.json")
-	
+
 	credsJSON := `{
 		"installed": {
 			"client_id": "test-client-id",
 			"client_secret": "test-client-secret"
 		}
 	}`
-	
+
 	if err := os.WriteFile(credsPath, []byte(credsJSON), 0644); err != nil {
 		t.Fatalf("Failed to write credentials file: %v", err)
 	}
@@ -302,14 +302,14 @@ func TestLoadGoogleCredentials_Web(t *testing.T) {
 	// Create a temporary credentials file with "web" format
 	tempDir := t.TempDir()
 	credsPath := filepath.Join(tempDir, "credentials.json")
-	
+
 	credsJSON := `{
 		"web": {
 			"client_id": "web-client-id",
 			"client_secret": "web-client-secret"
 		}
 	}`
-	
+
 	if err := os.WriteFile(credsPath, []byte(credsJSON), 0644); err != nil {
 		t.Fatalf("Failed to write credentials file: %v", err)
 	}
@@ -327,4 +327,3 @@ func TestLoadGoogleCredentials_Web(t *testing.T) {
 		t.Errorf("Expected clientSecret to be 'web-client-secret', got '%s'", clientSecret)
 	}
 }
-

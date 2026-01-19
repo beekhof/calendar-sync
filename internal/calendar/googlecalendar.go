@@ -3,6 +3,7 @@ package calendar
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -83,10 +84,17 @@ func (c *Client) GetEvents(calendarID string, timeMin, timeMax time.Time) ([]*ca
 	eventsList, err := c.service.Events.List(calendarID).
 		TimeMin(timeMin.Format(time.RFC3339)).
 		TimeMax(timeMax.Format(time.RFC3339)).
-		SingleEvents(true). // Expand recurring events
+		SingleEvents(true).                                            // Expand recurring events
+		MaxAttendees(1).                                               // ourselves is always returned, needed fro declined check
+		EventTypes("default", "birthday", "fromGmail", "outOfOffice"). // skip workingLocation and focusTime
+		MaxResults(1000).                                              // get some more than default for longer lookahead without paging needed
 		Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list events: %w", err)
+	}
+
+	if eventsList.NextPageToken != "" {
+		log.Println("WARNING: maximum number of events per request exceeded, additional results may be missing.")
 	}
 
 	return eventsList.Items, nil
